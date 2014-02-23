@@ -1,0 +1,1 @@
+Alfresco Batch Executer Tool: Alfresco extension allowing easily execute JavaScript actions on millions of nodes in parallel batches.

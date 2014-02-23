@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>batch-executer</artifactId>
+    <groupId>com.ciber.alfresco</groupId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Alfresco Batch Executer Tool</name>
+    <description>
+        Alfresco extension allowing easily execute JavaScript actions 
+        on millions of nodes in parallel batches.
+    </description>
+
+    <parent>
+        <groupId>org.alfresco.maven</groupId>
+        <artifactId>alfresco-sdk-parent</artifactId>
+        <version>1.1.1</version>
+    </parent>
+
+    <properties>
+        <alfresco.version>4.2.0.3</alfresco.version>
+
+        <!-- Use MySQL as it works a lot faster than H2 -->
+        <alfresco.db.name>batch_dev</alfresco.db.name>
+        <alfresco.db.username>${alfresco.db.name}</alfresco.db.username>
+        <alfresco.db.password>${alfresco.db.name}</alfresco.db.password>
+        <alfresco.db.params>useUnicode=yes&amp;amp;characterEncoding=UTF-8</alfresco.db.params>
+        <alfresco.db.url>jdbc:mysql://localhost/${alfresco.db.name}?${alfresco.db.params}</alfresco.db.url>
+        <alfresco.db.datasource.class>com.mysql.jdbc.jdbc2.optional.MysqlDataSource</alfresco.db.datasource.class>
+        <mysql.root.password> </mysql.root.password>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.alfresco</groupId>
+            <artifactId>alfresco-repository</artifactId>
+            <version>${alfresco.version}</version>
+        </dependency>
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>5.1.25</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- Override alfresco-sdk-parent to add MySQL driver -->
+                <plugin>
+                    <groupId>org.apache.tomcat.maven</groupId>
+                    <artifactId>tomcat7-maven-plugin</artifactId>
+                    <!--<version>${maven.tomcat.version}</version>-->
+                    <dependencies>
+                        <dependency>
+                            <groupId>mysql</groupId>
+                            <artifactId>mysql-connector-java</artifactId>
+                            <version>5.1.25</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>jar-to-war</id>
+            <properties>
+                <skipTests>true</skipTests>
+            </properties>
+            <build>
+                <plugins>
+                    <!-- Fetch and unpack Alfresco Repository / Share in the target / folder -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>unpack-alfresco</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>unpack</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${alfresco.client.war.folder}</outputDirectory>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>${alfresco.client.war.groupId}</groupId>
+                                            <artifactId>${alfresco.client.war}</artifactId>
+                                            <type>war</type>
+                                            <version>${alfresco.client.war.version}</version>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Configure tomcat context.xml included in the webapp with proper filtering -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-alfresco-test-resources</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${alfresco.client.war.folder}</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${project.build.testOutputDirectory}</directory>
+                                            <targetPath>WEB-INF/classes</targetPath>
+                                            <filtering>true</filtering>
+                                        </resource>
+                                        <resource>
+                                            <directory>src/test/properties/${env}</directory>
+                                            <filtering>true</filtering>
+                                            <targetPath>WEB-INF/classes</targetPath>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>copy-tomcat-resources</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>src/test/tomcat</directory>
+                                            <filtering>true</filtering>
+                                            <includes>
+                                                <include>context.xml</include>
+                                            </includes>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>copy-jars</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${alfresco.client.war.folder}</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${project.build.directory}</directory>
+                                            <targetPath>WEB-INF/lib</targetPath>
+                                            <filtering>false</filtering>
+                                            <includes>
+                                                <include>${project.build.finalName}.${project.packaging}</include>
+                                            </includes>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Configures tomcat to run against the overlaid WAR + AMP -->
+                    <plugin>
+                        <groupId>org.apache.tomcat.maven</groupId>
+                        <artifactId>tomcat7-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>run-wars</id>
+                                <goals>
+                                    <goal>run-war-only</goal>
+                                </goals>
+                                <phase>integration-test</phase>
+                                <configuration>
+                                    <contextFile>${project.build.directory}/context.xml</contextFile>
+                                    <ignorePackaging>true</ignorePackaging>
+                                    <useSeparateTomcatClassLoader>true</useSeparateTomcatClassLoader>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>    
+
+        <!-- Cleans Alfresco data folder, MySQL DB and logs -->
+        <profile>
+            <id>purge</id>
+            <build>
+                <plugins>
+                    <!-- Cleaning Alfresco Repository storage/log folders/files -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <configuration>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.basedir}/${alfresco.data.location}</directory>
+                                </fileset>
+                                <fileset>
+                                    <directory>${app.log.dir}</directory>
+                                    <includes>
+                                        <include>*.log</include>
+                                    </includes>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>1.2.1</version>
+                        <executions>
+                            <execution>
+                                <id>reset-db</id>
+                                <phase>clean</phase>
+                                <goals><goal>exec</goal></goals>
+                                <configuration>
+                                    <executable>mysql</executable>
+                                    <arguments>
+                                        <argument>--user=root</argument>
+                                        <argument>--password=${mysql.root.password}</argument>
+                                        <argument>-e</argument>
+                                        <argument>
+                                            "drop database if exists ${alfresco.db.name};
+                                            create database ${alfresco.db.name} default character set utf8
+                                                collate utf8_bin;
+                                            grant all on ${alfresco.db.name}.* to '${alfresco.db.username}'@'localhost'
+                                                identified by '${alfresco.db.password}' with grant option;
+                                            grant all on ${alfresco.db.name}.* to
+                                                '${alfresco.db.username}'@'localhost.localdomain' identified by
+                                                '${alfresco.db.password}' with grant option"
+                                        </argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+
+    <repositories>
+        <repository>
+            <id>alfresco-public</id>
+            <url>https://artifacts.alfresco.com/nexus/content/groups/public</url>
+        </repository>
+        <repository>
+            <id>alfresco-public-snapshots</id>
+            <url>https://artifacts.alfresco.com/nexus/content/groups/public-snapshots</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>alfresco-artifacts-repository</id>
+            <url>http://artifacts.alfresco.com/nexus/content/groups/private/</url>
+        </repository>
+    </repositories>
+
+</project>

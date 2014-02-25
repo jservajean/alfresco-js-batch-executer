@@ -1,19 +1,9 @@
 package com.ciber.alfresco.repo.jscript;
 
 import org.alfresco.model.ContentModel;
-import org.alfresco.repo.security.authentication.AuthenticationUtil;
-import org.alfresco.service.ServiceRegistry;
-import org.alfresco.service.cmr.model.FileInfo;
 import org.alfresco.service.cmr.repository.NodeRef;
-import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.StoreRef;
-import org.alfresco.util.ApplicationContextHelper;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.junit.After;
-import org.junit.BeforeClass;
 import org.junit.Test;
-import org.springframework.context.ApplicationContext;
 
 import java.util.List;
 import java.util.Map;
@@ -22,13 +12,13 @@ import static com.ibm.icu.impl.Assert.fail;
 import static org.junit.Assert.*;
 
 /**
- * Tests {@link ScriptBatchExecuter}.
+ * Tests {@link ScriptBatchExecuter}. Focuses mainly on scripting functionality.
  *
  * @author Bulat Yaminov
  */
-public class ScriptBatchExecuterTest {
+public class ScriptBatchExecuterJavaScriptTest extends BaseScriptingTest {
 
-    private static final Log logger = LogFactory.getLog(ScriptBatchExecuterTest.class);
+//    private static final Log logger = LogFactory.getLog(ScriptBatchExecuterJavaScriptTest.class);
 
     private static final String FUNCTION_RENAME_NODE =
                 "function(node) {\n" +
@@ -55,38 +45,6 @@ public class ScriptBatchExecuterTest {
 
     public static final String FUNCTION_NULL = "null";
 
-    private static ServiceRegistry sr;
-    private static NodeService ns;
-    private static NodeRef testHome;
-
-    @BeforeClass
-    public static void initAppContext() {
-        ApplicationContextHelper.setUseLazyLoading(false);
-        ApplicationContextHelper.setNoAutoStart(true);
-        ApplicationContext applicationContext = ApplicationContextHelper.getApplicationContext(
-                new String[]{"classpath:alfresco/application-context.xml"});
-        ns = (NodeService) applicationContext.getBean("NodeService");
-        sr = (ServiceRegistry) applicationContext.getBean("ServiceRegistry");
-        AuthenticationUtil.setFullyAuthenticatedUser("admin");
-        NodeRef companyHome = sr.getNodeLocatorService().getNode("companyhome", null, null);
-        testHome = ns.getChildByName(companyHome, ContentModel.ASSOC_CONTAINS, "Tests");
-        if (testHome == null) {
-            logger.info("Creating folder /Company Home/Tests/");
-            testHome = sr.getFileFolderService().create(companyHome, "Tests", ContentModel.TYPE_FOLDER).getNodeRef();
-        }
-        logger.info("Application Context loaded");
-    }
-
-    @After
-    public void clearTestFolder() {
-        if (ns.exists(testHome)) {
-            List<FileInfo> children = sr.getFileFolderService().list(testHome);
-            for (FileInfo child : children) {
-                ns.deleteNode(child.getNodeRef());
-            }
-        }
-    }
-
     @Test
     public void jsObjectExists() {
         final String script =
@@ -112,7 +70,7 @@ public class ScriptBatchExecuterTest {
         NodeRef d2 = createTestDocument(n2);
 
         final String script = String.format(
-                        "var d1 = search.findNode('%3$s');\n" +
+                "var d1 = search.findNode('%3$s');\n" +
                         "var d2 = search.findNode('%4$s');\n" +
                         "batchExecuter.processArray({\n" +
                         "   items: [d1, d2],\n" +
@@ -265,10 +223,10 @@ public class ScriptBatchExecuterTest {
     public void jobNameContainsFolderName() {
         Object result = execute(String.format(
                 "batchExecuter.processFolderRecursively({\n" +
-                "    root: search.findNode('%s'),\n" +
-                "    onNode: function(node) {}\n" +
-                "});\n",
-            testHome));
+                        "    root: search.findNode('%s'),\n" +
+                        "    onNode: function(node) {}\n" +
+                        "});\n",
+                testHome));
         assertTrue(result instanceof String);
         assertTrue(((String) result).contains("Tests"));
     }
@@ -287,51 +245,6 @@ public class ScriptBatchExecuterTest {
         );
         assertTrue(result instanceof String);
         assertTrue(((String) result).contains("5"));
-    }
-
-    @Test
-    public void memoryAllocationDoesNotIncreaseWhileExecuting() {
-        // TODO: implement
-    }
-
-    @Test
-    public void jobsListCanBeFetched() {
-        // TODO: implement
-    }
-
-    @Test
-    public void jobCanBeStopped() {
-        // TODO: implement
-    }
-
-
-    private Object execute(String script) {
-        return sr.getScriptService().executeScriptString(script, null);
-    }
-
-    private Object executeWithModel(String script) {
-        NodeRef companyHome = sr.getSearchService().selectNodes(
-                sr.getNodeService().getRootNode(StoreRef.STORE_REF_WORKSPACE_SPACESSTORE),
-                "/app:company_home",
-                null,
-                sr.getNamespaceService(),
-                false).get(0);
-        String userName = sr.getAuthenticationService().getCurrentUserName();
-        NodeRef person = sr.getPersonService().getPerson(userName);
-        NodeRef userHome = (NodeRef) sr.getNodeService().getProperty(person, ContentModel.PROP_HOMEFOLDER);
-
-        Map<String, Object> model = sr.getScriptService().buildDefaultModel(person, companyHome,
-                userHome, null, null, null);
-
-        return sr.getScriptService().executeScriptString(script, model);
-    }
-
-    private NodeRef createTestDocument(String name) {
-        return createTestDocument(name, testHome);
-    }
-
-    private NodeRef createTestDocument(String name, NodeRef parent) {
-        return sr.getFileFolderService().create(parent, name, ContentModel.TYPE_CONTENT).getNodeRef();
     }
 
 }

@@ -1,19 +1,19 @@
 package com.ciber.alfresco.repo.jscript;
 
+import com.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 /**
- * Tests {@link ScriptBatchExecuter}. Focuses mainly on methods available in the class.
+ * Tests {@link ScriptBatchExecuter}. Focuses mainly on jobs management functionality.
  *
  * @author Bulat Yaminov
  */
-public class ScriptBatchExecuterClassTest extends BaseScriptingTest {
+public class ScriptBEJobManagementTest extends BaseScriptingTest {
 
     private static ScriptBatchExecuter batchExecuter;
 
@@ -36,10 +36,9 @@ public class ScriptBatchExecuterClassTest extends BaseScriptingTest {
                         "});\n"
         );
         String jobId = String.valueOf(result);
-        fail("uncomment");
-//        List<BatchJob> jobs = batchExecuter.getCurrentJobs();
-//        assertEquals(1, jobs.size());
-//        assertEquals(jobId, jobs.get(0).getId());
+        List<BatchJobParameters> jobs = batchExecuter.getCurrentJobs();
+        assertEquals(1, jobs.size());
+        assertEquals(jobId, jobs.get(0).getId());
     }
 
     @Test

@@ -1,0 +1,227 @@
+package com.ciber.alfresco.repo.jscript.batchexecuter;
+
+import com.ciber.alfresco.repo.jscript.RhinoUtils;
+import org.alfresco.repo.jscript.ScriptNode;
+import org.apache.commons.lang.RandomStringUtils;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.ScriptableObject;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Bean describing a batch job being executed.
+ *
+ * @author Bulat Yaminov
+ */
+public abstract class BatchJobParameters {
+
+    private static final String PARAM_ITEMS = "items";
+    private static final String PARAM_ROOT = "root";
+    private static final String PARAM_BATCH_SIZE = "batchSize";
+    private static final String PARAM_THREADS = "threads";
+    private static final String PARAM_ON_NODE = "onNode";
+    private static final String PARAM_ON_BATCH = "onBatch";
+    private static final String PARAM_DISABLE_RULES = "disableRules";
+
+    private static final int DEFAULT_BATCH_SIZE = 200;
+    private static final int DEFAULT_THREADS = 4;
+
+    private String id;
+    private int threads;
+    private int batchSize;
+    private boolean disableRules;
+    private String onNodeFunction;
+    private String onBatchFunction;
+    private Function onNode;
+    private Function onBatch;
+
+    /** New instance can only be created using static factory methods */
+    private BatchJobParameters() {}
+
+    /**
+     * Parse JavaScript object with job parameters and return
+     * a node-processing or batch-processing job details.
+     * Parameters must be for array processing.
+     *
+     * @param params JavaScript object with parameters.
+     * @return Parsed job parameters object.
+     * @throws IllegalArgumentException when parameters are incorrect.
+     */
+    public static ProcessArrayJobParameters parseArrayParameters(Object params) throws IllegalArgumentException {
+        Map<String, Object> paramsMap = getParametersMap(params);
+        final List<Object> items = RhinoUtils.getArray(paramsMap, PARAM_ITEMS);
+        if (items == null) {
+            throw new IllegalArgumentException(PARAM_ITEMS + " must be specified and be an array");
+        }
+
+        ProcessArrayJobParameters job = new ProcessArrayJobParameters();
+        job.setId(generateJobName(items.size() + "-items"));
+        job.setItems(items);
+
+        parseCommonParameters(job, paramsMap);
+
+        return job;
+    }
+
+    /**
+     * Parse JavaScript object with job parameters and return
+     * a node-processing or batch-processing job details.
+     * Parameters must be for a folder recursive processing.
+     *
+     * @param params JavaScript object with parameters.
+     * @return Parsed job parameters object.
+     * @throws IllegalArgumentException when parameters are incorrect.
+     */
+    public static ProcessFolderJobParameters parseFolderParameters(Object params) throws IllegalArgumentException {
+        Map<String, Object> paramsMap = getParametersMap(params);
+        final ScriptNode root = RhinoUtils.getScriptNode(paramsMap, PARAM_ROOT);
+        if (root == null) {
+            throw new IllegalArgumentException(PARAM_ROOT + " must be specified and be a node");
+        }
+
+        ProcessFolderJobParameters job = new ProcessFolderJobParameters();
+        job.setId(generateJobName(root.getName() + "-folder"));
+        job.setRoot(root);
+
+        parseCommonParameters(job, paramsMap);
+
+        return job;
+    }
+
+    private static void parseCommonParameters(BatchJobParameters job, Map<String, Object> paramsMap) {
+        /* Parse common parameters */
+        job.setBatchSize(RhinoUtils.getInteger(paramsMap, PARAM_BATCH_SIZE, DEFAULT_BATCH_SIZE));
+        job.setThreads(RhinoUtils.getInteger(paramsMap, PARAM_THREADS, DEFAULT_THREADS));
+        job.setDisableRules(RhinoUtils.getBoolean(paramsMap, PARAM_DISABLE_RULES, false));
+
+        final Function onNode = RhinoUtils.getFunction(paramsMap, PARAM_ON_NODE);
+        final Function onBatch = RhinoUtils.getFunction(paramsMap, PARAM_ON_BATCH);
+        if (onNode == null && onBatch == null) {
+            throw new IllegalArgumentException("one of " + PARAM_ON_NODE + " or " + PARAM_ON_BATCH +
+                    " function is required");
+        }
+        if (onNode != null && onBatch != null) {
+            throw new IllegalArgumentException("only one of " + PARAM_ON_NODE + " or " + PARAM_ON_BATCH +
+                    " function can be specified");
+        }
+
+        job.setOnNode(onNode);
+        job.setOnBatch(onBatch);
+    }
+
+    private static Map<String, Object> getParametersMap(Object params) {
+        if (!(params instanceof ScriptableObject)) {
+            throw new IllegalArgumentException("first parameter must be an object");
+        }
+        return RhinoUtils.convertToMap((ScriptableObject) params);
+    }
+
+    private static String generateJobName(String description) {
+        if (description == null)
+            description = "";
+        return String.format("BatchExecuter-%s_%s", RandomStringUtils.randomAlphabetic(4).toLowerCase(),
+                description.substring(0, Math.min(20, description.length())));
+    }
+
+
+    /* Getters and setters */
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public int getThreads() {
+        return threads;
+    }
+
+    public void setThreads(int threads) {
+        this.threads = threads;
+    }
+
+    public int getBatchSize() {
+        return batchSize;
+    }
+
+    public void setBatchSize(int batchSize) {
+        this.batchSize = batchSize;
+    }
+
+    public boolean getDisableRules() {
+        return disableRules;
+    }
+
+    public void setDisableRules(boolean disableRules) {
+        this.disableRules = disableRules;
+    }
+
+    public String getOnNodeFunction() {
+        return onNodeFunction;
+    }
+
+    public String getOnBatchFunction() {
+        return onBatchFunction;
+    }
+
+    public void setOnNode(Function onNode) {
+        this.onNode = onNode;
+        if (onNode != null) {
+            this.onNodeFunction = Context.getCurrentContext().decompileFunction(onNode, 2);
+        }
+    }
+
+    public Function getOnNode() {
+        return onNode;
+    }
+
+    public void setOnBatch(Function onBatch) {
+        this.onBatch = onBatch;
+        if (onBatch != null) {
+            this.onBatchFunction = Context.getCurrentContext().decompileFunction(onBatch, 2);
+        }
+    }
+
+    public Function getOnBatch() {
+        return onBatch;
+    }
+
+
+    /* Subclasses */
+
+    public static class ProcessArrayJobParameters extends BatchJobParameters {
+
+        private List<Object> items;
+
+        /** New instance can only be created using static factory methods */
+        private ProcessArrayJobParameters() {}
+
+        public void setItems(List<Object> items) {
+            this.items = items;
+        }
+
+        public List<Object> getItems() {
+            return items;
+        }
+    }
+
+    public static class ProcessFolderJobParameters extends BatchJobParameters {
+
+        private ScriptNode root;
+
+        /** New instance can only be created using static factory methods */
+        private ProcessFolderJobParameters() {}
+
+        public void setRoot(ScriptNode root) {
+            this.root = root;
+        }
+
+        public ScriptNode getRoot() {
+            return root;
+        }
+    }
+}

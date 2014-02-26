@@ -2,23 +2,21 @@ package com.ciber.alfresco.repo.jscript;
 
 import org.alfresco.model.ContentModel;
 import org.alfresco.service.cmr.repository.NodeRef;
-import org.alfresco.service.cmr.repository.StoreRef;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.ibm.icu.impl.Assert.fail;
 import static org.junit.Assert.*;
 
 /**
- * Tests {@link ScriptBatchExecuter}. Focuses mainly on scripting functionality.
+ * Tests {@link ScriptBatchExecuter}. Focuses mainly on execution functionality.
  *
  * @author Bulat Yaminov
  */
-public class ScriptBatchExecuterJavaScriptTest extends BaseScriptingTest {
+public class ScriptBEExecutionTest extends BaseScriptingTest {
 
-//    private static final Log logger = LogFactory.getLog(ScriptBatchExecuterJavaScriptTest.class);
+//    private static final Log logger = LogFactory.getLog(ScriptBEExecutionTest.class);
 
     private static final String FUNCTION_RENAME_NODE =
                 "function(node) {\n" +

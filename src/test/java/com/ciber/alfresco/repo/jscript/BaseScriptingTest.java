@@ -6,7 +6,6 @@ import org.alfresco.service.ServiceRegistry;
 import org.alfresco.service.cmr.model.FileInfo;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
-import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.util.ApplicationContextHelper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -29,6 +28,7 @@ public class BaseScriptingTest {
     protected static ServiceRegistry sr;
     protected static NodeService ns;
     protected static NodeRef testHome;
+    protected static NodeRef companyHome;
     protected static ApplicationContext ctx;
 
     @BeforeClass
@@ -40,7 +40,7 @@ public class BaseScriptingTest {
         ns = (NodeService) ctx.getBean("NodeService");
         sr = (ServiceRegistry) ctx.getBean("ServiceRegistry");
         AuthenticationUtil.setFullyAuthenticatedUser("admin");
-        NodeRef companyHome = sr.getNodeLocatorService().getNode("companyhome", null, null);
+        companyHome = sr.getNodeLocatorService().getNode("companyhome", null, null);
         testHome = ns.getChildByName(companyHome, ContentModel.ASSOC_CONTAINS, "Tests");
         if (testHome == null) {
             logger.info("Creating folder /Company Home/Tests/");
@@ -72,12 +72,6 @@ public class BaseScriptingTest {
     }
 
     protected Object executeWithModel(String script) {
-        NodeRef companyHome = sr.getSearchService().selectNodes(
-                sr.getNodeService().getRootNode(StoreRef.STORE_REF_WORKSPACE_SPACESSTORE),
-                "/app:company_home",
-                null,
-                sr.getNamespaceService(),
-                false).get(0);
         String userName = sr.getAuthenticationService().getCurrentUserName();
         NodeRef person = sr.getPersonService().getPerson(userName);
         NodeRef userHome = (NodeRef) sr.getNodeService().getProperty(person, ContentModel.PROP_HOMEFOLDER);
@@ -86,5 +80,21 @@ public class BaseScriptingTest {
                 userHome, null, null, null);
 
         return sr.getScriptService().executeScriptString(script, model);
+    }
+
+    protected void executeWithModelNonBlocking(final String script) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                AuthenticationUtil.setFullyAuthenticatedUser("admin");
+                executeWithModel(script);
+            }
+        }).start();
+        try {
+            // Wait so that tests can rely that job has started
+            Thread.sleep(50);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

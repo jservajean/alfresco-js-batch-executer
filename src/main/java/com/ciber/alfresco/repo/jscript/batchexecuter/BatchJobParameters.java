@@ -29,6 +29,7 @@ public abstract class BatchJobParameters {
     private static final int DEFAULT_THREADS = 4;
 
     private String id;
+    private String name;
     private int threads;
     private int batchSize;
     private boolean disableRules;
@@ -57,7 +58,7 @@ public abstract class BatchJobParameters {
         }
 
         ProcessArrayJobParameters job = new ProcessArrayJobParameters();
-        job.setId(generateJobName(items.size() + "-items"));
+        generateJobNameAndId(job, items.size() + "-items");
         job.setItems(items);
 
         parseCommonParameters(job, paramsMap);
@@ -82,7 +83,7 @@ public abstract class BatchJobParameters {
         }
 
         ProcessFolderJobParameters job = new ProcessFolderJobParameters();
-        job.setId(generateJobName(root.getName() + "-folder"));
+        generateJobNameAndId(job, root.getName() + "-folder");
         job.setRoot(root);
 
         parseCommonParameters(job, paramsMap);
@@ -118,22 +119,26 @@ public abstract class BatchJobParameters {
         return RhinoUtils.convertToMap((ScriptableObject) params);
     }
 
-    private static String generateJobName(String description) {
-        if (description == null)
-            description = "";
-        return String.format("BatchExecuter-%s_%s", RandomStringUtils.randomAlphabetic(4).toLowerCase(),
-                description.substring(0, Math.min(20, description.length())));
+    private static void generateJobNameAndId(BatchJobParameters job, String shortTitle) {
+        if (shortTitle == null)
+            shortTitle = "";
+        String random = RandomStringUtils.randomAlphabetic(16);
+        String pattern = String.format("BatchExecuter_%s_%%s",
+                shortTitle.substring(0, Math.min(20, shortTitle.length())));
+        job.setId(String.format(pattern, random));
+        // Make name shorter for nicer logs
+        job.setName(String.format(pattern, random.substring(0, 4).toLowerCase()));
     }
 
 
     /* Getters and setters */
 
-    public String getId() {
-        return id;
+    public String getName() {
+        return name;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public void setName(String id) {
+        this.name = id;
     }
 
     public int getThreads() {
@@ -188,6 +193,14 @@ public abstract class BatchJobParameters {
 
     public Function getOnBatch() {
         return onBatch;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
 

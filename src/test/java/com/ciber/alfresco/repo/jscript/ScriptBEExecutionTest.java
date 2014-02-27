@@ -62,13 +62,13 @@ public class ScriptBEExecutionTest extends BaseScriptingTest {
     }
 
     private void testProcessesList(String onNodeJS, String onBatchJS) {
-        final String n1 = "node1.txt";
-        final String n2 = "node2.txt";
+        final String n1 = "node1.bin";
+        final String n2 = "node2.bin";
         NodeRef d1 = createTestDocument(n1);
         NodeRef d2 = createTestDocument(n2);
 
         final String script = String.format(
-                "var d1 = search.findNode('%3$s');\n" +
+                        "var d1 = search.findNode('%3$s');\n" +
                         "var d2 = search.findNode('%4$s');\n" +
                         "batchExecuter.processArray({\n" +
                         "   items: [d1, d2],\n" +
@@ -108,9 +108,9 @@ public class ScriptBEExecutionTest extends BaseScriptingTest {
     }
 
     private void testProcessesFolder(String onNodeJS, String onBatchJS) {
-        final String n1 = "doc1.txt";
-        final String n2 = "doc2.txt";
-        final String n3 = "doc3.txt";
+        final String n1 = "doc1.bin";
+        final String n2 = "doc2.bin";
+        final String n3 = "doc3.bin";
         NodeRef f1 = sr.getFileFolderService().create(testHome, "folder1", ContentModel.TYPE_FOLDER).getNodeRef();
         NodeRef d1 = createTestDocument(n1, f1);
         NodeRef f2 = sr.getFileFolderService().create(f1, "folder2", ContentModel.TYPE_FOLDER).getNodeRef();
@@ -148,8 +148,8 @@ public class ScriptBEExecutionTest extends BaseScriptingTest {
 
     @Test
     public void preservesScope() {
-        final String n1 = "node1.txt";
-        final String n2 = "node2.txt";
+        final String n1 = "node1.bin";
+        final String n2 = "node2.bin";
         NodeRef d1 = createTestDocument(n1);
         NodeRef d2 = createTestDocument(n2);
 
@@ -232,7 +232,7 @@ public class ScriptBEExecutionTest extends BaseScriptingTest {
     @Test
     public void handlesJavaArray() {
         Object result = executeWithModel(
-                "var node = companyhome.childByNamePath('Tests').createFile('test.txt')\n" +
+                "var node = companyhome.childByNamePath('Tests').createFile('test.bin')\n" +
                 "node.content = 'a,b,c,d,e';\n" +
                 "node.save();\n" +
                 "node.reset();\n" +

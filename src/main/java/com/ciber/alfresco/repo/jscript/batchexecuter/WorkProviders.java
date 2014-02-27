@@ -153,7 +153,7 @@ public class WorkProviders {
             @Override
             public int getTotalEstimatedWorkSize() {
                 // we cannot quickly estimate how many recursive children a folder has
-                return stack.size();
+                return -1;
             }
 
             /** Returns just one node at a time */

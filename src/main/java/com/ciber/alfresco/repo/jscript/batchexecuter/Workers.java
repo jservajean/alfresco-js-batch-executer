@@ -11,7 +11,8 @@ import org.mozilla.javascript.*;
 import java.util.List;
 
 /**
- * Container class for all worker implementations used by {@link com.ciber.alfresco.repo.jscript.ScriptBatchExecuter}.
+ * Container class for all worker implementations used by
+ * {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
  *
  * @author Bulat Yaminov
  */

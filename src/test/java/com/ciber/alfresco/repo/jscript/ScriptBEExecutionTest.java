@@ -10,7 +10,8 @@ import static com.ibm.icu.impl.Assert.fail;
 import static org.junit.Assert.*;
 
 /**
- * Tests {@link ScriptBatchExecuter}. Focuses mainly on execution functionality.
+ * Tests {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
+ * Focuses mainly on execution functionality.
  *
  * @author Bulat Yaminov
  */

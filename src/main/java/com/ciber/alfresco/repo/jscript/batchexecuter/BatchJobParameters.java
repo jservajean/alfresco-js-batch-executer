@@ -38,6 +38,12 @@ public abstract class BatchJobParameters {
     private Function onNode;
     private Function onBatch;
 
+    private Status status;
+
+    public enum Status {
+        RUNNING, FINISHED, CANCELED
+    }
+
     /** New instance can only be created using static factory methods */
     private BatchJobParameters() {}
 
@@ -114,7 +120,7 @@ public abstract class BatchJobParameters {
 
     private static Map<String, Object> getParametersMap(Object params) {
         if (!(params instanceof ScriptableObject)) {
-            throw new IllegalArgumentException("first parameter must be an object");
+            throw new IllegalArgumentException("first parameter must be an object but was: " + params);
         }
         return RhinoUtils.convertToMap((ScriptableObject) params);
     }
@@ -201,6 +207,14 @@ public abstract class BatchJobParameters {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    protected void setStatus(Status status) {
+        this.status = status;
     }
 
 

@@ -1,8 +1,5 @@
-package com.ciber.alfresco.repo.jscript;
+package com.ciber.alfresco.repo.jscript.batchexecuter;
 
-import com.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters;
-import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders;
-import com.ciber.alfresco.repo.jscript.batchexecuter.Workers;
 import org.alfresco.repo.batch.BatchProcessor;
 import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
@@ -37,6 +34,8 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
     private ApplicationContext applicationContext;
 
     private static ConcurrentHashMap<String, BatchJobParameters> runningJobs = new ConcurrentHashMap<>(10);
+    private static ConcurrentHashMap<String, WorkProviders.CancellableWorkProvider> runningWorkProviders =
+            new ConcurrentHashMap<>(10);
 
     /**
      * Starts processing an array of objects, applying a function to each object or batch of objects
@@ -87,9 +86,21 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
      * @return true if job existed by given ID and was cancelled.
      * False if job was already finished or never existed.
      */
-    public boolean cancelJob(String jobId) {
-        // TODO: implement
-        return false;
+    public synchronized boolean cancelJob(String jobId) {
+        if (jobId == null) {
+            return false;
+        }
+
+        // We don't have access to BatchProcessor's executer service,
+        // so the only way to cancel is stop giving new work packages
+        BatchJobParameters job = runningJobs.get(jobId);
+        WorkProviders.CancellableWorkProvider workProvider = runningWorkProviders.get(jobId);
+        boolean canceled = workProvider != null && workProvider.cancel();
+        if (canceled && job != null) {
+            job.setStatus(BatchJobParameters.Status.CANCELED);
+        }
+
+        return canceled;
     }
 
     private <T> String doProcess(BatchJobParameters job,
@@ -104,11 +115,17 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
 
             RetryingTransactionHelper rth = sr.getTransactionService().getRetryingTransactionHelper();
 
+            job.setStatus(BatchJobParameters.Status.RUNNING);
+
             if (job.getOnNode() != null) {
 
                 // Let the BatchProcessor do the batching
+                WorkProviders.CancellableWorkProvider<Object> workProvider =
+                        workFactory.newNodesWorkProvider(data, job.getBatchSize());
+                runningWorkProviders.put(job.getId(), workProvider);
+
                 BatchProcessor<Object> processor = new BatchProcessor<>(job.getName(), rth,
-                        workFactory.newNodesWorkProvider(data),
+                        workProvider,
                         job.getThreads(), job.getBatchSize(), applicationContext, logger, 1000);
                 Workers.ProcessNodeWorker worker = new Workers.ProcessNodeWorker(job.getOnNode(), cachedScope,
                         user, job.getDisableRules(), sr.getRuleService(), logger, this);
@@ -119,8 +136,12 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
             } else {
 
                 // Split into batches here so that onBatch function can process them
+                WorkProviders.CancellableWorkProvider<List<Object>> workProvider =
+                        workFactory.newBatchesWorkProvider(data, job.getBatchSize());
+                runningWorkProviders.put(job.getId(), workProvider);
+
                 BatchProcessor<List<Object>> processor = new BatchProcessor<>(job.getName(), rth,
-                        workFactory.newBatchesWorkProvider(data, job.getBatchSize()),
+                        workProvider,
                         job.getThreads(), 1, applicationContext, logger, 1);
                 Workers.ProcessBatchWorker worker = new Workers.ProcessBatchWorker(job.getOnBatch(), cachedScope,
                         user, job.getDisableRules(), sr.getRuleService(), logger, this);
@@ -129,10 +150,15 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
                 processor.process(worker, true);
             }
 
+            if (job.getStatus() != BatchJobParameters.Status.CANCELED) {
+                job.setStatus(BatchJobParameters.Status.FINISHED);
+            }
+
             return job.getName();
 
         } finally {
             runningJobs.remove(job.getId());
+            runningWorkProviders.remove(job.getId());
         }
     }
 

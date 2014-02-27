@@ -16,16 +16,58 @@ import org.mozilla.javascript.Scriptable;
 import java.util.*;
 
 /**
- * Container class for all work providers used by {@link com.ciber.alfresco.repo.jscript.ScriptBatchExecuter}.
+ * Container class for all work providers used by
+ * {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
  *
  * @author Bulat Yaminov
  */
 public class WorkProviders {
 
+//    private static final Log logger = LogFactory.getLog(WorkProviders.class);
+
     public interface NodeOrBatchWorkProviderFactory<T> {
-        BatchProcessWorkProvider<Object> newNodesWorkProvider(T data);
-        BatchProcessWorkProvider<List<Object>> newBatchesWorkProvider(T data, int batchSize);
+        CancellableWorkProvider<Object> newNodesWorkProvider(T data, int batchSize);
+        CancellableWorkProvider<List<Object>> newBatchesWorkProvider(T data, int batchSize);
         String describe(T data);
+    }
+
+    /**
+     * WorkProvider which can be notified to stop giving any new work packages.
+     * This is needed to cancel batch job, as we don't have access to
+     * {@link org.alfresco.repo.batch.BatchProcessor}'s ExecuterService.
+     */
+    public interface CancellableWorkProvider<T> extends BatchProcessWorkProvider<T> {
+        /**
+         * Cancels BatchProcessWorkProvider from giving any more batches.
+         * @return true if canceled, false if work provider was already canceled or finished before.
+         */
+        boolean cancel();
+    }
+
+    private static abstract class AbstractCancellableWorkProvider<T> implements CancellableWorkProvider<T> {
+        private boolean canceled = false;
+
+        @Override
+        public synchronized boolean cancel() {
+            if (canceled || !hasMoreWork()) {
+                return false;
+            }
+            canceled = true;
+            return true;
+        }
+
+        @Override
+        public final synchronized Collection<T> getNextWork() {
+            if (canceled) {
+                return Collections.emptyList();
+            } else {
+                return doGetNextWork();
+            }
+        }
+
+        protected abstract boolean hasMoreWork();
+
+        protected abstract Collection<T> doGetNextWork();
     }
 
     public static class CollectionWorkProviderFactory implements NodeOrBatchWorkProviderFactory<Collection<Object>> {
@@ -36,12 +78,12 @@ public class WorkProviders {
         }
 
         @Override
-        public BatchProcessWorkProvider<Object> newNodesWorkProvider(Collection<Object> items) {
-            return new CollectionWorkProvider(items);
+        public CancellableWorkProvider<Object> newNodesWorkProvider(Collection<Object> items, int batchSize) {
+            return new CollectionWorkProvider(items, batchSize);
         }
 
         @Override
-        public BatchProcessWorkProvider<List<Object>> newBatchesWorkProvider(Collection<Object> items, int batchSize) {
+        public CancellableWorkProvider<List<Object>> newBatchesWorkProvider(Collection<Object> items, int batchSize) {
             return new CollectionOfBatchesWorkProvider(items, batchSize);
         }
 
@@ -50,32 +92,41 @@ public class WorkProviders {
             return String.format("collection of %d nodes", data.size());
         }
 
-        private class CollectionWorkProvider implements BatchProcessWorkProvider<Object> {
+        private class CollectionWorkProvider extends AbstractCancellableWorkProvider<Object> {
 
-            private Collection<Object> items;
-            private boolean hasMore = true;
+            private int itemsSize;
+            private Iterator<Object> iterator;
+            private int batchSize;
 
-            public CollectionWorkProvider(Collection<Object> items) {
-                this.items = items;
+            public CollectionWorkProvider(Collection<Object> items, int batchSize) {
+                this.itemsSize = items.size();
+                this.batchSize = batchSize;
+                this.iterator = items.iterator();
             }
 
             @Override
             public int getTotalEstimatedWorkSize() {
-                return items.size();
+                return itemsSize;
             }
 
             @Override
-            public Collection<Object> getNextWork() {
-                if (hasMore) {
-                    hasMore = false;
-                    return items;
-                } else {
-                    return Collections.emptyList();
+            protected boolean hasMoreWork() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Collection<Object> doGetNextWork() {
+                /* Actually it is not needed to give work packages of fixed size here,
+                 * but it is better for cancellation behavior */
+                List<Object> batch = new ArrayList<>(batchSize);
+                while (iterator.hasNext() && batch.size() < batchSize) {
+                    batch.add(iterator.next());
                 }
+                return batch;
             }
         }
 
-        private class CollectionOfBatchesWorkProvider implements BatchProcessWorkProvider<List<Object>> {
+        private class CollectionOfBatchesWorkProvider extends AbstractCancellableWorkProvider<List<Object>> {
 
             private Iterator<Object> iterator;
             private int batchSize;
@@ -93,7 +144,12 @@ public class WorkProviders {
             }
 
             @Override
-            public Collection<List<Object>> getNextWork() {
+            protected boolean hasMoreWork() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Collection<List<Object>> doGetNextWork() {
                 // Return just one batch wrapped in a singleton collection
                 List<Object> batch = new ArrayList<>();
                 while (iterator.hasNext() && batch.size() < batchSize) {
@@ -125,12 +181,12 @@ public class WorkProviders {
         }
 
         @Override
-        public BatchProcessWorkProvider<Object> newNodesWorkProvider(NodeRef root) {
+        public CancellableWorkProvider<Object> newNodesWorkProvider(NodeRef root, int batchSize) {
             return new FolderBrowsingWorkProvider(root);
         }
 
         @Override
-        public BatchProcessWorkProvider<List<Object>> newBatchesWorkProvider(NodeRef root, int batchSize) {
+        public CancellableWorkProvider<List<Object>> newBatchesWorkProvider(NodeRef root, int batchSize) {
             return new FolderBrowsingInBatchesWorkProvider(root, batchSize);
         }
 
@@ -142,7 +198,7 @@ public class WorkProviders {
             return String.format("folder %s recursively", name);
         }
 
-        private class FolderBrowsingWorkProvider implements BatchProcessWorkProvider<Object> {
+        private class FolderBrowsingWorkProvider extends AbstractCancellableWorkProvider<Object> {
 
             private Stack<NodeRef> stack = new Stack<>();
 
@@ -156,9 +212,14 @@ public class WorkProviders {
                 return -1;
             }
 
+            @Override
+            protected boolean hasMoreWork() {
+                return !stack.isEmpty();
+            }
+
             /** Returns just one node at a time */
             @Override
-            public Collection<Object> getNextWork() {
+            public Collection<Object> doGetNextWork() {
                 NodeRef node = pop();
                 if (node == null) {
                     return Collections.emptyList();
@@ -192,7 +253,7 @@ public class WorkProviders {
             }
         }
 
-        private class FolderBrowsingInBatchesWorkProvider implements BatchProcessWorkProvider<List<Object>> {
+        private class FolderBrowsingInBatchesWorkProvider extends AbstractCancellableWorkProvider<List<Object>> {
 
             private FolderBrowsingWorkProvider browser;
             private int batchSize;
@@ -207,9 +268,14 @@ public class WorkProviders {
                 return browser.getTotalEstimatedWorkSize();
             }
 
+            @Override
+            protected boolean hasMoreWork() {
+                return browser.hasMoreWork();
+            }
+
             /** Returns just one batch wrapped in a collection */
             @Override
-            public Collection<List<Object>> getNextWork() {
+            public Collection<List<Object>> doGetNextWork() {
                 List<Object> batch = new ArrayList<>();
                 while (!browser.stack.isEmpty() && batch.size() < batchSize) {
                     batch.add(browser.convertToJS(browser.pop()));

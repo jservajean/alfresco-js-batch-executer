@@ -8,7 +8,7 @@
 		<property name="transactionService" ref="TransactionService"/>
 	</bean>
 
-	<bean id="batchesScript" parent="baseJavaScriptExtension" class="com.ciber.alfresco.repo.jscript.ScriptBatchExecuter">
+	<bean id="batchesScript" parent="baseJavaScriptExtension" class="com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter">
 		<property name="extensionName" value="batchExecuter"/>
 		<property name="serviceRegistry" ref="ServiceRegistry"/>
 	</bean>

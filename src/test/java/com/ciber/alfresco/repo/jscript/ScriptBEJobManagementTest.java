@@ -1,8 +1,6 @@
 package com.ciber.alfresco.repo.jscript;
 
 import com.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters;
-import org.alfresco.model.ContentModel;
-import org.alfresco.service.cmr.repository.NodeRef;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -63,47 +61,33 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
 
     @Test
     public void jobCanBeStopped() throws Exception {
-        // TODO: maybe can work with default testHome
-        NodeRef tests2 = ns.getChildByName(companyHome, ContentModel.ASSOC_CONTAINS, "Tests2");
-        if (tests2 != null) {
-            ns.deleteNode(tests2);
-        }
-        tests2 = sr.getFileFolderService().create(companyHome, "Tests2", ContentModel.TYPE_FOLDER).getNodeRef();
-        try {
-            final int maxCreateCount = 50;
-            executeWithModelNonBlocking(
-                    "var array = [];\n" +
-                    "for (var i = 0; i < " + maxCreateCount + "; i++) { array[i] = i; }\n" +
-                    "batchExecuter.processArray({\n" +
-                    "    items: array,\n" +
-                    "    batchSize: 5,\n" +
-                    "    threads: 2,\n" +
-                    "    onNode: function(node) {\n" +
-                    "        var file = companyhome.childByNamePath('Tests2').createFile('test-doc-' + node + '.bin');\n" +
-                    "    }\n" +
-                    "});\n"
-            );
+        final int maxCreateCount = 50;
+        executeWithModelNonBlocking(
+                "var array = [];\n" +
+                "for (var i = 0; i < " + maxCreateCount + "; i++) { array[i] = i; }\n" +
+                "batchExecuter.processArray({\n" +
+                "    items: array,\n" +
+                "    batchSize: 5,\n" +
+                "    threads: 2,\n" +
+                "    onNode: function(node) {\n" +
+                "        var file = companyhome.childByNamePath('Tests').createFile('test-doc-' + node + '.bin');\n" +
+                "    }\n" +
+                "});\n"
+        );
 
-            Collection<BatchJobParameters> jobs = batchExecuter.getCurrentJobs();
-            assertEquals(1, jobs.size());
-            BatchJobParameters job = jobs.iterator().next();
+        Collection<BatchJobParameters> jobs = batchExecuter.getCurrentJobs();
+        assertEquals(1, jobs.size());
+        BatchJobParameters job = jobs.iterator().next();
 
-            batchExecuter.cancelJob(job.getId());
-            // Wait for unfinished batches to complete
-            Thread.sleep(2000);
+        batchExecuter.cancelJob(job.getId());
+        // Wait for unfinished batches to complete
+        Thread.sleep(2000);
 
-            int createdCount = sr.getFileFolderService().listFiles(tests2).size();
+        int createdCount = sr.getFileFolderService().listFiles(testHome).size();
 
-            assertTrue("Some files were created", createdCount > 0);
-            assertTrue("Job was canceled", createdCount < maxCreateCount);
-            assertTrue("Started batches were completed", createdCount % 5 == 0);
-
-        } finally {
-            // Wait for the whole job to complete
-            if (ns.exists(tests2)) {
-                ns.deleteNode(tests2);
-            }
-        }
+        assertTrue("Some files were created", createdCount > 0);
+        assertTrue("Job was canceled", createdCount < maxCreateCount);
+        assertTrue("Started batches were completed", createdCount % 5 == 0);
     }
 
     @Test

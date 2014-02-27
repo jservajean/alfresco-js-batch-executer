@@ -1,10 +1,18 @@
 package com.ciber.alfresco.repo.jscript.batchexecuter;
 
+import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CancellableWorkProvider;
+import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CollectionWorkProviderFactory;
+import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.FolderBrowsingWorkProviderFactory;
+import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.NodeOrBatchWorkProviderFactory;
+import com.ciber.alfresco.repo.jscript.batchexecuter.Workers.CancellableWorker;
+import com.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessBatchWorker;
+import com.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessNodeWorker;
 import org.alfresco.repo.batch.BatchProcessor;
 import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.repo.transaction.RetryingTransactionHelper;
 import org.alfresco.service.ServiceRegistry;
+import org.alfresco.util.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.mozilla.javascript.Scriptable;
@@ -34,8 +42,8 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
     private ApplicationContext applicationContext;
 
     private static ConcurrentHashMap<String, BatchJobParameters> runningJobs = new ConcurrentHashMap<>(10);
-    private static ConcurrentHashMap<String, WorkProviders.CancellableWorkProvider> runningWorkProviders =
-            new ConcurrentHashMap<>(10);
+    private static ConcurrentHashMap<String, Pair<CancellableWorkProvider, CancellableWorker>>
+            runningWorkProviders = new ConcurrentHashMap<>(10);
 
     /**
      * Starts processing an array of objects, applying a function to each object or batch of objects
@@ -49,7 +57,7 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
      */
     public String processArray(Object params) {
         BatchJobParameters.ProcessArrayJobParameters job = BatchJobParameters.parseArrayParameters(params);
-        return doProcess(job, WorkProviders.CollectionWorkProviderFactory.getInstance(), job.getItems());
+        return doProcess(job, CollectionWorkProviderFactory.getInstance(), job.getItems());
     }
 
     /**
@@ -65,7 +73,7 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
     public String processFolderRecursively(Object params) {
         BatchJobParameters.ProcessFolderJobParameters job = BatchJobParameters.parseFolderParameters(params);
         return doProcess(job,
-                new WorkProviders.FolderBrowsingWorkProviderFactory(sr, getScope(), logger),
+                new FolderBrowsingWorkProviderFactory(sr, getScope(), logger),
                 job.getRoot().getNodeRef());
     }
 
@@ -94,17 +102,21 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
         // We don't have access to BatchProcessor's executer service,
         // so the only way to cancel is stop giving new work packages
         BatchJobParameters job = runningJobs.get(jobId);
-        WorkProviders.CancellableWorkProvider workProvider = runningWorkProviders.get(jobId);
-        boolean canceled = workProvider != null && workProvider.cancel();
-        if (canceled && job != null) {
-            job.setStatus(BatchJobParameters.Status.CANCELED);
+        Pair<CancellableWorkProvider, CancellableWorker> pair = runningWorkProviders.get(jobId);
+        if (pair != null) {
+            boolean workProviderCanceled = pair.getFirst().cancel();
+            boolean workerCanceled = pair.getSecond().cancel();
+            boolean canceled = workProviderCanceled || workerCanceled; // either cancellation is a change
+            if (canceled && job != null) {
+                job.setStatus(BatchJobParameters.Status.CANCELED);
+            }
+            return canceled;
         }
-
-        return canceled;
+        return false;
     }
 
     private <T> String doProcess(BatchJobParameters job,
-                                 WorkProviders.NodeOrBatchWorkProviderFactory<T> workFactory,
+                                 NodeOrBatchWorkProviderFactory<T> workFactory,
                                  T data) {
         try {
             /* Process items */
@@ -120,15 +132,17 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
             if (job.getOnNode() != null) {
 
                 // Let the BatchProcessor do the batching
-                WorkProviders.CancellableWorkProvider<Object> workProvider =
+                CancellableWorkProvider<Object> workProvider =
                         workFactory.newNodesWorkProvider(data, job.getBatchSize());
-                runningWorkProviders.put(job.getId(), workProvider);
+                ProcessNodeWorker worker = new ProcessNodeWorker(job.getOnNode(), cachedScope,
+                        user, job.getDisableRules(), sr.getRuleService(), logger, this);
+
+                runningWorkProviders.put(job.getId(), new Pair<CancellableWorkProvider,
+                        CancellableWorker>(workProvider, worker));
 
                 BatchProcessor<Object> processor = new BatchProcessor<>(job.getName(), rth,
                         workProvider,
                         job.getThreads(), job.getBatchSize(), applicationContext, logger, 1000);
-                Workers.ProcessNodeWorker worker = new Workers.ProcessNodeWorker(job.getOnNode(), cachedScope,
-                        user, job.getDisableRules(), sr.getRuleService(), logger, this);
                 logger.info(String.format("Starting batch processor '%s' to process %s",
                         job.getName(), workFactory.describe(data)));
                 processor.process(worker, true);
@@ -136,15 +150,17 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
             } else {
 
                 // Split into batches here so that onBatch function can process them
-                WorkProviders.CancellableWorkProvider<List<Object>> workProvider =
+                CancellableWorkProvider<List<Object>> workProvider =
                         workFactory.newBatchesWorkProvider(data, job.getBatchSize());
-                runningWorkProviders.put(job.getId(), workProvider);
+                ProcessBatchWorker worker = new ProcessBatchWorker(job.getOnBatch(), cachedScope,
+                        user, job.getDisableRules(), sr.getRuleService(), logger, this);
+
+                runningWorkProviders.put(job.getId(), new Pair<CancellableWorkProvider,
+                        CancellableWorker>(workProvider, worker));
 
                 BatchProcessor<List<Object>> processor = new BatchProcessor<>(job.getName(), rth,
                         workProvider,
                         job.getThreads(), 1, applicationContext, logger, 1);
-                Workers.ProcessBatchWorker worker = new Workers.ProcessBatchWorker(job.getOnBatch(), cachedScope,
-                        user, job.getDisableRules(), sr.getRuleService(), logger, this);
                 logger.info(String.format("Starting batch processor '%s' to process %s with batch function",
                         job.getName(), workFactory.describe(data)));
                 processor.process(worker, true);

@@ -90,11 +90,5 @@ public class BaseScriptingTest {
                 executeWithModel(script);
             }
         }).start();
-        try {
-            // Wait so that tests can rely that job has started
-            Thread.sleep(50);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

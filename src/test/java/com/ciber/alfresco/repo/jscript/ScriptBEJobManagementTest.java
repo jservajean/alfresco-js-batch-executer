@@ -35,6 +35,7 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
                 "    onNode: function(node) {}\n" +
                 "});\n"
         );
+        Thread.sleep(100);
         Collection<BatchJobParameters> jobs = batchExecuter.getCurrentJobs();
         assertTrue(jobs.size() >= 1);
         BatchJobParameters job = getJobByNameContains(jobs, "Company Home");
@@ -63,7 +64,7 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
 
     @Test
     public void jobCanBeStopped() throws Exception {
-        final int maxCreateCount = 200;
+        final int maxCreateCount = 100;
         executeWithModelNonBlocking(
                 "var array = [];\n" +
                 "for (var i = 0; i < " + maxCreateCount + "; i++) { array[i] = i; }\n" +
@@ -76,11 +77,11 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
                 "        logger.info('created: ' + file.displayPath + '/' + file.name);\n" +
                 "    }\n" +
                 "});\n" +
-                "logger.info('Finished creating 100 items');\n"
+                "logger.info('Finished creating " + maxCreateCount + " items');\n"
         );
 
         // Let the job process some batches
-        Thread.sleep(100);
+        Thread.sleep(200);
 
         Collection<BatchJobParameters> jobs = batchExecuter.getCurrentJobs();
         assertEquals(1, jobs.size());
@@ -89,13 +90,12 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
         assertEquals(true, batchExecuter.cancelJob(job.getId()));
         assertEquals(BatchJobParameters.Status.CANCELED, job.getStatus());
         // Wait for unfinished batches to complete
-        Thread.sleep(2000);
+        Thread.sleep(1000);
 
         int createdCount = sr.getFileFolderService().listFiles(testHome).size();
 
         assertTrue("Some files were created", createdCount > 0);
         assertTrue("Job was canceled", createdCount < maxCreateCount);
-        assertTrue("Started batches were completed", createdCount % 5 == 0);
     }
 
     @Test

@@ -18,7 +18,20 @@ import java.util.List;
  */
 public class Workers {
 
-    private abstract static class BaseProcessWorker<T> extends BatchProcessor.BatchProcessWorkerAdaptor<T> {
+    /**
+     * A batch processor worker which can be canceled. When canceled it will skip any
+     * processing requests.
+     */
+    public interface CancellableWorker<T> extends BatchProcessor.BatchProcessWorker<T> {
+        /**
+         * Notifies this worker to skip processing of any entries.
+         * @return true if this worker was not canceled before.
+         */
+        boolean cancel();
+    }
+
+    private abstract static class BaseProcessWorker<T> extends BatchProcessor.BatchProcessWorkerAdaptor<T>
+                                                        implements CancellableWorker<T> {
 
         protected Scriptable scope;
         private String userName;
@@ -26,6 +39,7 @@ public class Workers {
         private RuleService ruleService;
         protected Log logger;
         private BaseScopableProcessorExtension scopable;
+        private boolean canceled;
 
         protected Function processFunction;
 
@@ -65,6 +79,23 @@ public class Workers {
                 ruleService.enableRules();
             }
         }
+
+        @Override
+        public final void process(T entry) throws Throwable {
+            if (!canceled) {
+                doProcess(entry);
+            }
+        }
+
+        public synchronized boolean cancel() {
+            if (!canceled) {
+                canceled = true;
+                return true;
+            }
+            return false;
+        }
+
+        protected abstract void doProcess(T entry) throws Throwable;
     }
 
     public static class ProcessNodeWorker extends BaseProcessWorker<Object> {
@@ -75,7 +106,7 @@ public class Workers {
         }
 
         @Override
-        public void process(Object entry) throws Throwable {
+        protected void doProcess(Object entry) throws Throwable {
             Object result = processFunction.call(Context.getCurrentContext(),
                     scope, scope, new Object[]{entry});
             if (logger.isTraceEnabled()) {
@@ -103,7 +134,7 @@ public class Workers {
         }
 
         @Override
-        public void process(List<Object> entry) throws Throwable {
+        protected void doProcess(List<Object> entry) throws Throwable {
             Scriptable itemsArray = Context.getCurrentContext().newArray(scope, entry.toArray());
             Object resultArray = processFunction.call(Context.getCurrentContext(),
                     scope, scope, new Object[]{ itemsArray });

@@ -32,6 +32,7 @@ public class ScriptBEWebScriptTest extends BaseWebScriptTest {
         scriptProcessor = (BaseProcessor) this.getServer().getApplicationContext().getBean("javaScriptProcessor");
         mockBatchExecuter = new MockBatchExecuter();
         scriptProcessor.registerProcessorExtension(mockBatchExecuter);
+        this.setDefaultRunAs("admin");
     }
 
     @Override
@@ -41,7 +42,7 @@ public class ScriptBEWebScriptTest extends BaseWebScriptTest {
     }
 
     public void testJobIsDisplayed() throws Exception {
-        String url = "/batch-executer/jobs";
+        String url = "/ciber/batch-executer/jobs";
         Response resp = sendRequest(new GetRequest(url), Status.STATUS_OK);
         String response = resp.getContentAsString();
         assertContains(mockBatchExecuter.ID, response);
@@ -54,7 +55,7 @@ public class ScriptBEWebScriptTest extends BaseWebScriptTest {
     }
 
     public void testJobIsCanceled() throws Exception {
-        String url = "/batch-executer/jobs/theId";
+        String url = "/ciber/batch-executer/jobs/theId";
         sendRequest(new TestWebScriptServer.DeleteRequest(url), Status.STATUS_OK);
         assertEquals(1, mockBatchExecuter.canceledJobIds.size());
         assertEquals("theId", mockBatchExecuter.canceledJobIds.get(0));
@@ -82,6 +83,11 @@ public class ScriptBEWebScriptTest extends BaseWebScriptTest {
         public synchronized boolean cancelJob(String jobId) {
             canceledJobIds.add(jobId);
             return true;
+        }
+
+        @Override
+        public String getExtensionName() {
+            return "batchExecuter";
         }
 
         @Override

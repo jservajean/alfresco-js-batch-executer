@@ -128,12 +128,12 @@ public abstract class BatchJobParameters {
     private static void generateJobNameAndId(BatchJobParameters job, String shortTitle) {
         if (shortTitle == null)
             shortTitle = "";
-        String random = RandomStringUtils.randomAlphabetic(16);
-        String pattern = String.format("BatchExecuter_%s_%%s",
-                shortTitle.substring(0, Math.min(20, shortTitle.length())));
-        job.setId(String.format(pattern, random));
+        String random = RandomStringUtils.randomAlphabetic(20);
+        job.setId(random);
         // Make name shorter for nicer logs
-        job.setName(String.format(pattern, random.substring(0, 4).toLowerCase()));
+        job.setName(String.format("BatchExecuter_%s_%s",
+                shortTitle.substring(0, Math.min(20, shortTitle.length())),
+                random.substring(0, 4).toLowerCase()));
     }
 
 

@@ -42,6 +42,7 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
         String function = job.getOnNodeFunction();
         assertTrue("Expected something like 'function(node) {}', but found: [" + function + "]",
                 function.matches("\\s*function\\s*\\(node\\)\\s*\\{\\s*\\}\\s*"));
+        assertNull(job.getOnBatchFunction());
         assertEquals(5, job.getBatchSize());
         assertTrue(job instanceof BatchJobParameters.ProcessFolderJobParameters);
 

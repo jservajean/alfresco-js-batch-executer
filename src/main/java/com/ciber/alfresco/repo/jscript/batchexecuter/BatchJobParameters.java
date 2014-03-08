@@ -45,7 +45,7 @@ public abstract class BatchJobParameters {
     }
 
     /** New instance can only be created using static factory methods */
-    private BatchJobParameters() {}
+    protected BatchJobParameters() {}
 
     /**
      * Parse JavaScript object with job parameters and return

@@ -1,7 +1,6 @@
-package com.ciber.alfresco.repo.jscript;
+package com.ciber.alfresco.repo.jscript.batchexecuter;
 
-import com.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters;
-import com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter;
+import com.ciber.alfresco.repo.jscript.BaseScriptingTest;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -23,7 +22,7 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
 
     @BeforeClass
     public static void initContext() {
-        batchExecuter = (ScriptBatchExecuter) ctx.getBean("batchesScript");
+        batchExecuter = (ScriptBatchExecuter) ctx.getBean("batchExecuterScript");
     }
 
     @Test

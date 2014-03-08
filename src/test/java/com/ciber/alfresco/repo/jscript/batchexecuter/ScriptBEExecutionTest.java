@@ -1,5 +1,6 @@
-package com.ciber.alfresco.repo.jscript;
+package com.ciber.alfresco.repo.jscript.batchexecuter;
 
+import com.ciber.alfresco.repo.jscript.BaseScriptingTest;
 import org.alfresco.model.ContentModel;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.junit.Test;

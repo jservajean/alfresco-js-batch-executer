@@ -1,5 +1,5 @@
-Alfresco JavaScript Batch Executer Tool
-=======================================
+Alfresco JavaScript Batch Executer
+==================================
 
 Have you ever found yourself updating thousands of nodes in Alfresco using a JavaScript ran on repository side?
 For example to post-process documents imported by BFSIT? Or did you ever have to traverse a large folder tree and
@@ -7,7 +7,7 @@ run some logic on each document? Then you know that repo-side scripts run slow a
 you may wait a day for it to finish, and if it fails then nothing is saved. It makes it almost impossible to
 use repo-side JavaScript for bulk processing.
 
-Alfresco JavaScript Batch Executer Tool is aimed to solve this problem in **multithreaded** and
+Alfresco JavaScript Batch Executer tool is aimed to solve this problem in **multithreaded** and
 **transactional** manner. It can do the job 10 times faster, while clearly showing the progress and also
 allowing you to cancel jobs.
 
@@ -88,58 +88,59 @@ Following parameters are supported when calling these functions.
 </thead>
 <tbody>
 <tr>
-    <td>`root`</td>
+    <td><code>root</code></td>
     <td>
-        The folder to process, mandatory when calling `processFolderRecursively` function, ignored otherwise.
+        The folder to process, mandatory when calling <code>processFolderRecursively</code> function, ignored otherwise.
         The folder is traversed in depth-first-search manner and **all** nodes are fed to the processing function,
-        including the root folder itself and any sub-folders and documents. Only `cm:contains` associations are
-        used to fetch children of folders.
+        including the root folder itself and any sub-folders and documents. Only <code>cm:contains</code> associations
+        are used to fetch children of folders.
     </td>
 </tr>
 <tr>
-    <td>`items`</td>
+    <td><code>items</code></td>
     <td>
-        The array of items to process, mandatory when calling `processArray` function, ignored otherwise. Each
-        item is fed to processing function `onNode` or `onBatch` and does not necessarily have to be a node. It
-        may be any JavaScript object.
+        The array of items to process, mandatory when calling <code>processArray</code> function, ignored otherwise.
+        Each item is fed to processing function <code>onNode</code> or <code>onBatch</code> and does not necessarily
+        have to be a node. It may be any JavaScript object.
     </td>
 </tr>
 <tr>
-    <td>`batchSize`</td>
+    <td><code>batchSize</code></td>
     <td>
-        The size of batch to use when processing. Optional, default value is `200`. Each batch is committed in
-        separate transaction.
+        The size of batch to use when processing. Optional, default value is <code>200</code>.
+        Each batch is committed in separate transaction.
     </td>
 </tr>
 <tr>
-    <td>`threads`</td>
+    <td><code>threads</code></td>
     <td>
-        The number of processing threads. Optional, default value is `4`.
+        The number of processing threads. Optional, default value is <code>4</code>.
     </td>
 </tr>
 <tr>
-    <td>`disableRules`</td>
+    <td><code>disableRules</code></td>
     <td>
-        May be used to disable Alfresco rules when processing takes place. Optional, `false` by default.
+        May be used to disable Alfresco rules when processing takes place. Optional, <code>false</code> by default.
     </td>
 </tr>
 <tr>
-    <td>`onNode`</td>
+    <td><code>onNode</code></td>
     <td>
-        A JavaScript function which will be executed on each item found by `batchExecuter`. It receives one
-        parameter: the item, it may be a document, folder, a string from `items` array etc. Mandatory unless
-        `onBatch` function is supplied.
+        A JavaScript function which will be executed on each item found by <code>batchExecuter</code>. It receives one
+        parameter: the item, it may be a document, folder, a string from <code>items</code> array etc. Mandatory unless
+        <code>onBatch</code> function is supplied.
     </td>
 </tr>
 <tr>
-    <td>`onBatch`</td>
+    <td><code>onBatch</code></td>
     <td>
         A JavaScript function which will be executed on each **batch** of items to process. It receives one
         parameter: a JavaScript array of items in the batch. This function can be used to further improve
         performance by grouping some logic in batches. For example if you have to check for each document if
-        another one exists with the same name, then you can make **one** query with all names included by `OR`
-        instead of executing one search query for each node. This can improve performance but complicates the
-        implementation of course. `onBatch` parameter is mandatory unless `onNode` function is present.
+        another one exists with the same name, then you can make **one** query with all names included by
+        <code>OR</code> instead of executing one search query for each node. This can improve performance but
+        complicates the implementation of course. <code>onBatch</code> parameter is mandatory unless
+        <code>onNode</code> function is present.
     </td>
 </tr>
 </tbody>

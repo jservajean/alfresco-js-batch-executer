@@ -15,7 +15,7 @@ Installation
 ------------
 
 To install the tool to your Alfresco you can simply download the JAR file from this project and put it to
-"alfresco/WEB-INF/lib" project.
+`alfresco/WEB-INF/lib` folder.
 
 If you use Maven to build your Alfresco WAR or an AMP, you can add following dependency:
 
@@ -91,9 +91,9 @@ Following parameters are supported when calling these functions.
     <td><code>root</code></td>
     <td>
         The folder to process, mandatory when calling <code>processFolderRecursively</code> function, ignored otherwise.
-        The folder is traversed in depth-first-search manner and **all** nodes are fed to the processing function,
-        including the root folder itself and any sub-folders and documents. Only <code>cm:contains</code> associations
-        are used to fetch children of folders.
+        The folder is traversed in depth-first-search manner and <strong>all</strong> nodes are fed to
+        the processing function, including the root folder itself and any sub-folders and documents.
+        Only <code>cm:contains</code> associations are used to fetch children of folders.
     </td>
 </tr>
 <tr>
@@ -134,10 +134,10 @@ Following parameters are supported when calling these functions.
 <tr>
     <td><code>onBatch</code></td>
     <td>
-        A JavaScript function which will be executed on each **batch** of items to process. It receives one
-        parameter: a JavaScript array of items in the batch. This function can be used to further improve
-        performance by grouping some logic in batches. For example if you have to check for each document if
-        another one exists with the same name, then you can make **one** query with all names included by
+        A JavaScript function which will be executed on each <strong>batch</strong> of items to process.
+        It receives one parameter: a JavaScript array of items in the batch. This function can be used to further
+        improve performance by grouping some logic in batches. For example if you have to check for each document if
+        another one exists with the same name, then you can make <strong>one</strong> query with all names included by
         <code>OR</code> instead of executing one search query for each node. This can improve performance but
         complicates the implementation of course. <code>onBatch</code> parameter is mandatory unless
         <code>onNode</code> function is present.

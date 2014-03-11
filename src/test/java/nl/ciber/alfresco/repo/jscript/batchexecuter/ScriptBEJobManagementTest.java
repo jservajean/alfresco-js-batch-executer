@@ -1,6 +1,6 @@
-package com.ciber.alfresco.repo.jscript.batchexecuter;
+package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
-import com.ciber.alfresco.repo.jscript.BaseScriptingTest;
+import nl.ciber.alfresco.repo.jscript.BaseScriptingTest;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -9,7 +9,7 @@ import java.util.Collection;
 import static org.junit.Assert.*;
 
 /**
- * Tests {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
+ * Tests {@link nl.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
  * Focuses mainly on jobs management functionality.
  *
  * @author Bulat Yaminov

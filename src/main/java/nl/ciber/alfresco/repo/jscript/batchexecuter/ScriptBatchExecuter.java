@@ -1,12 +1,12 @@
-package com.ciber.alfresco.repo.jscript.batchexecuter;
+package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
-import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CancellableWorkProvider;
-import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CollectionWorkProviderFactory;
-import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.FolderBrowsingWorkProviderFactory;
-import com.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.NodeOrBatchWorkProviderFactory;
-import com.ciber.alfresco.repo.jscript.batchexecuter.Workers.CancellableWorker;
-import com.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessBatchWorker;
-import com.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessNodeWorker;
+import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CancellableWorkProvider;
+import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CollectionWorkProviderFactory;
+import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.FolderBrowsingWorkProviderFactory;
+import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.NodeOrBatchWorkProviderFactory;
+import nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.CancellableWorker;
+import nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessBatchWorker;
+import nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessNodeWorker;
 import org.alfresco.repo.batch.BatchProcessor;
 import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
@@ -52,7 +52,7 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
      * This is a blocking call.
      *
      * @param params processing params, with array stored as 'items' property. See
-     * {@link com.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters} for all parameters.
+     * {@link nl.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters} for all parameters.
      * @return job ID.
      */
     public String processArray(Object params) {
@@ -67,7 +67,7 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
      * This is a blocking call.
      *
      * @param params processing params, with the folder ScriptNode stored as 'root' property. See
-     * {@link com.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters} for all parameters.
+     * {@link nl.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters} for all parameters.
      * @return job ID.
      */
     public String processFolderRecursively(Object params) {

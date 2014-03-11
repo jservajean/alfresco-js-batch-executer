@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>batch-executer</artifactId>
-    <groupId>com.ciber.alfresco</groupId>
+    <groupId>nl.ciber.alfresco</groupId>
     <version>0.9-SNAPSHOT</version>
     <packaging>jar</packaging>
 

@@ -1,4 +1,4 @@
-package com.ciber.alfresco.repo.jscript.batchexecuter;
+package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
 import org.alfresco.repo.batch.BatchProcessor;
 import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * Container class for all worker implementations used by
- * {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
+ * {@link nl.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
  *
  * @author Bulat Yaminov
  */

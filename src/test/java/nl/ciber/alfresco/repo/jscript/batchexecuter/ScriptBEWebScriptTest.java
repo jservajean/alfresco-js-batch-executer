@@ -1,4 +1,4 @@
-package com.ciber.alfresco.repo.jscript.batchexecuter;
+package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
 import org.alfresco.repo.processor.BaseProcessor;
 import org.alfresco.repo.web.scripts.BaseWebScriptTest;
@@ -14,7 +14,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Tests {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
+ * Tests {@link nl.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
  * Focuses on API webscripts.
  *
  * @author Bulat Yaminov

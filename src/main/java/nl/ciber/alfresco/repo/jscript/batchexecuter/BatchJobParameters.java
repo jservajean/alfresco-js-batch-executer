@@ -1,6 +1,6 @@
-package com.ciber.alfresco.repo.jscript.batchexecuter;
+package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
-import com.ciber.alfresco.repo.jscript.RhinoUtils;
+import nl.ciber.alfresco.repo.jscript.RhinoUtils;
 import org.alfresco.repo.jscript.ScriptNode;
 import org.apache.commons.lang.RandomStringUtils;
 import org.mozilla.javascript.Context;

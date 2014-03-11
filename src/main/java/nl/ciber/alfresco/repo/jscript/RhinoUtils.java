@@ -1,4 +1,4 @@
-package com.ciber.alfresco.repo.jscript;
+package nl.ciber.alfresco.repo.jscript;
 
 import org.alfresco.repo.jscript.ScriptNode;
 import org.mozilla.javascript.*;

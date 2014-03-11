@@ -1,6 +1,6 @@
-package com.ciber.alfresco.repo.jscript.batchexecuter;
+package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
-import com.ciber.alfresco.repo.jscript.BaseScriptingTest;
+import nl.ciber.alfresco.repo.jscript.BaseScriptingTest;
 import org.alfresco.model.ContentModel;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.junit.Test;
@@ -11,7 +11,7 @@ import static com.ibm.icu.impl.Assert.fail;
 import static org.junit.Assert.*;
 
 /**
- * Tests {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
+ * Tests {@link nl.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
  * Focuses mainly on execution functionality.
  *
  * @author Bulat Yaminov

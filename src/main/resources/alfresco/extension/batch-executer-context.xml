@@ -4,7 +4,7 @@
 <beans>
 
 	<bean id="batchExecuterScript" parent="baseJavaScriptExtension"
-          class="com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter">
+          class="nl.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter">
 		<property name="extensionName" value="batchExecuter"/>
 		<property name="serviceRegistry" ref="ServiceRegistry"/>
 	</bean>

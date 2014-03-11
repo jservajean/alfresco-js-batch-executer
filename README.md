@@ -21,7 +21,7 @@ If you use Maven to build your Alfresco WAR or an AMP, you can add following dep
 
 ```xml
 <dependency>
-    <groupId>com.ciber.alfresco</groupId>
+    <groupId>nl.ciber.alfresco</groupId>
     <artifactId>batch-executer</artifactId>
     <version>1.0</version>
 </dependency>
@@ -149,6 +149,6 @@ Following parameters are supported when calling these functions.
 Bug tracker
 -----------
 
-Have a bug? Please create an issue here on GitHub!
+Found a bug or have an idea of a new feature? Please create an issue here on GitHub!
 
 https://github.com/ciber/alfresco-js-batch-executer/issues

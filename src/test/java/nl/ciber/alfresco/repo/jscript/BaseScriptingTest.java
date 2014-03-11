@@ -1,4 +1,4 @@
-package com.ciber.alfresco.repo.jscript;
+package nl.ciber.alfresco.repo.jscript;
 
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;

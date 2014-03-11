@@ -1,4 +1,4 @@
-package com.ciber.alfresco.repo.jscript.batchexecuter;
+package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.batch.BatchProcessWorkProvider;
@@ -17,7 +17,7 @@ import java.util.*;
 
 /**
  * Container class for all work providers used by
- * {@link com.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
+ * {@link nl.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter}.
  *
  * @author Bulat Yaminov
  */

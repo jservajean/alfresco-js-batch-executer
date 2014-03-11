@@ -301,4 +301,20 @@
         </repository>
     </repositories>
 
+    <distributionManagement>
+        <repository>
+            <id>releases</id>
+            <url>https://repo.ms.ciber.nl/nexus/content/repositories/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>snapshots</id>
+            <url>https://repo.ms.ciber.nl/nexus/content/repositories/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+    <scm>
+        <connection>scm:git:git@github.com:ciber/alfresco-js-batch-executer.git</connection>
+        <url>scm:git:git@github.com:ciber/alfresco-js-batch-executer.git</url>
+        <developerConnection>scm:git:git@github.com:ciber/alfresco-js-batch-executer.git</developerConnection>
+    </scm>
+
 </project>

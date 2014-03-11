@@ -21,15 +21,6 @@
 
     <properties>
         <alfresco.version>4.2.e</alfresco.version>
-
-        <!-- Use MySQL as it works a lot faster than H2 -->
-        <alfresco.db.name>batch_dev</alfresco.db.name>
-        <alfresco.db.username>${alfresco.db.name}</alfresco.db.username>
-        <alfresco.db.password>${alfresco.db.name}</alfresco.db.password>
-        <alfresco.db.params>useUnicode=yes&amp;amp;characterEncoding=UTF-8</alfresco.db.params>
-        <alfresco.db.url>jdbc:mysql://localhost/${alfresco.db.name}?${alfresco.db.params}</alfresco.db.url>
-        <alfresco.db.datasource.class>com.mysql.jdbc.jdbc2.optional.MysqlDataSource</alfresco.db.datasource.class>
-        <mysql.root.password> </mysql.root.password>
     </properties>
 
     <dependencies>
@@ -218,63 +209,6 @@
                                     <contextFile>${project.build.directory}/context.xml</contextFile>
                                     <ignorePackaging>true</ignorePackaging>
                                     <useSeparateTomcatClassLoader>true</useSeparateTomcatClassLoader>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>    
-
-        <!-- Cleans Alfresco data folder, MySQL DB and logs -->
-        <profile>
-            <id>purge</id>
-            <build>
-                <plugins>
-                    <!-- Cleaning Alfresco Repository storage/log folders/files -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-clean-plugin</artifactId>
-                        <configuration>
-                            <filesets>
-                                <fileset>
-                                    <directory>${project.basedir}/${alfresco.data.location}</directory>
-                                </fileset>
-                                <fileset>
-                                    <directory>${app.log.dir}</directory>
-                                    <includes>
-                                        <include>*.log</include>
-                                    </includes>
-                                </fileset>
-                            </filesets>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>1.2.1</version>
-                        <executions>
-                            <execution>
-                                <id>reset-db</id>
-                                <phase>clean</phase>
-                                <goals><goal>exec</goal></goals>
-                                <configuration>
-                                    <executable>mysql</executable>
-                                    <arguments>
-                                        <argument>--user=root</argument>
-                                        <argument>--password=${mysql.root.password}</argument>
-                                        <argument>-e</argument>
-                                        <argument>
-                                            "drop database if exists ${alfresco.db.name};
-                                            create database ${alfresco.db.name} default character set utf8
-                                                collate utf8_bin;
-                                            grant all on ${alfresco.db.name}.* to '${alfresco.db.username}'@'localhost'
-                                                identified by '${alfresco.db.password}' with grant option;
-                                            grant all on ${alfresco.db.name}.* to
-                                                '${alfresco.db.username}'@'localhost.localdomain' identified by
-                                                '${alfresco.db.password}' with grant option"
-                                        </argument>
-                                    </arguments>
                                 </configuration>
                             </execution>
                         </executions>

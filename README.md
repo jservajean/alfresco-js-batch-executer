@@ -35,7 +35,7 @@ from following repository:
       <id>batch-executer-mvn-repo</id>
       <url>https://raw.github.com/ciber/alfresco-js-batch-executer/mvn-repo/</url>
    </repository>
-</repositories
+</repositories>
 ```
 
 Usage

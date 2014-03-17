@@ -23,8 +23,19 @@ If you use Maven to build your Alfresco WAR or an AMP, you can add following dep
 <dependency>
     <groupId>nl.ciber.alfresco</groupId>
     <artifactId>batch-executer</artifactId>
-    <version>1.0</version>
+    <version>0.9</version>
 </dependency>
+```
+
+from following repository:
+
+```xml
+<repositories>
+   <repository>
+      <id>batch-executer-mvn-repo</id>
+      <url>https://raw.github.com/ciber/alfresco-js-batch-executer/mvn-repo/</url>
+   </repository>
+</repositories
 ```
 
 Usage

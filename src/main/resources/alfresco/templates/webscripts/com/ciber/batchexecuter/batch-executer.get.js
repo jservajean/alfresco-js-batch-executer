@@ -1,1 +1,0 @@
-model.jobs = batchExecuter.getCurrentJobs();

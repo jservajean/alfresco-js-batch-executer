@@ -14,8 +14,9 @@ allowing you to cancel running jobs.
 Installation
 ------------
 
-To install the tool to your Alfresco you can simply download the JAR file from this project and put it to
-`alfresco/WEB-INF/lib` folder.
+To install the tool in your Alfresco instance you can simply download the
+[JAR file](https://github.com/ciber/alfresco-js-batch-executer/raw/mvn-repo/nl/ciber/alfresco/batch-executer/0.9/batch-executer-0.9.jar)
+from this project and put it to `alfresco/WEB-INF/lib` folder.
 
 If you use Maven to build your AMP or Alfresco WAR, you can add following dependency:
 

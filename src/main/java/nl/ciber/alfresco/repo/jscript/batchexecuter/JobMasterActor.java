@@ -3,13 +3,13 @@ package nl.ciber.alfresco.repo.jscript.batchexecuter;
 import akka.actor.*;
 import akka.japi.Procedure;
 import akka.routing.RoundRobinRouter;
+import org.alfresco.repo.batch.BatchProcessWorkProvider;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.util.Collection;
 
-import static nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CancellableWorkProvider;
-import static nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.CancellableWorker;
+import static nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.BatchProcessorWorker;
 
 /**
  * Actor which manages execution of a job.
@@ -21,17 +21,15 @@ public class JobMasterActor<T> extends UntypedActor {
     private static final Log logger = LogFactory.getLog(JobMasterActor.class);
 
     private final String jobId;
-    private final CancellableWorkProvider<T> workProvider;
-    private final CancellableWorker<T> worker;
+    private final BatchProcessWorkProvider<T> workProvider;
     private final ScriptBatchExecuter sbe;
     private final ActorRef workerRouter;
     private int batchesCount;
 
-    public JobMasterActor(String jobId, int threads, CancellableWorkProvider<T> workProvider,
-                          final CancellableWorker<T> worker, ScriptBatchExecuter sbe) {
+    public JobMasterActor(String jobId, int threads, BatchProcessWorkProvider<T> workProvider,
+                          final BatchProcessorWorker<T> worker, ScriptBatchExecuter sbe) {
         this.jobId = jobId;
         this.workProvider = workProvider;
-        this.worker = worker;
         this.sbe = sbe;
         workerRouter = this.getContext().actorOf(new Props(new UntypedActorFactory() {
             @Override
@@ -90,9 +88,6 @@ public class JobMasterActor<T> extends UntypedActor {
             } else if (o instanceof Cancel) {
 
                 logger.debug("canceling the job");
-
-                workProvider.cancel();
-                worker.cancel();
                 getContext().stop(getSelf());
 
             } else {

@@ -4,10 +4,7 @@ import akka.actor.Actor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActorFactory;
-import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CancellableWorkProvider;
-import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CollectionWorkProviderFactory;
-import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.FolderBrowsingWorkProviderFactory;
-import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.NodeOrBatchWorkProviderFactory;
+import org.alfresco.repo.batch.BatchProcessWorkProvider;
 import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.service.ServiceRegistry;
@@ -16,9 +13,12 @@ import org.apache.commons.logging.LogFactory;
 import org.mozilla.javascript.Scriptable;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static nl.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters.ProcessArrayJobParameters;
+import static nl.ciber.alfresco.repo.jscript.batchexecuter.BatchJobParameters.ProcessFolderJobParameters;
+import static nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CollectionWorkProvider;
+import static nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.FolderBrowsingWorkProvider;
 import static nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.*;
 
 /**
@@ -53,8 +53,8 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension {
      * @return job ID.
      */
     public String processArray(Object params) {
-        BatchJobParameters.ProcessArrayJobParameters job = BatchJobParameters.parseArrayParameters(params);
-        return doProcess(job, CollectionWorkProviderFactory.getInstance(), job.getItems());
+        ProcessArrayJobParameters job = BatchJobParameters.parseArrayParameters(params);
+        return doProcess(job, new CollectionWorkProvider<>(job.getItems(), job.getBatchSize()));
     }
 
     /**
@@ -68,10 +68,9 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension {
      * @return job ID.
      */
     public String processFolderRecursively(Object params) {
-        BatchJobParameters.ProcessFolderJobParameters job = BatchJobParameters.parseFolderParameters(params);
-        return doProcess(job,
-                new FolderBrowsingWorkProviderFactory(sr, getScope(), logger),
-                job.getRoot().getNodeRef());
+        ProcessFolderJobParameters job = BatchJobParameters.parseFolderParameters(params);
+        return doProcess(job, new FolderBrowsingWorkProvider(
+                job.getRoot().getNodeRef(), job.getBatchSize(), sr, logger, getScope()));
     }
 
     /**
@@ -107,25 +106,22 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension {
         return true;
     }
 
-    private <T> String doProcess(final BatchJobParameters job,
-                                 final NodeOrBatchWorkProviderFactory<T> workFactory,
-                                 final T data) {
+    private String doProcess(final BatchJobParameters job,
+                                 final BatchProcessWorkProvider<Object> workProvider) {
         /* Process items */
         runningJobs.put(job.getId(), job);
 
         final Scriptable cachedScope = getScope();
         final String user = AuthenticationUtil.getFullyAuthenticatedUser();
 
-        final CancellableWorkProvider<List<Object>> workProvider =
-                workFactory.newBatchesWorkProvider(data, job.getBatchSize());
-        final CancellableWorker<List<Object>> worker;
+        final BatchProcessorWorker<Object> worker;
 
         if (job.getOnNode() != null) {
-            worker = new ProcessBatchWithOnNodeFunctionWorker(job.getOnNode(), cachedScope,
+            worker = new ApplyNodeFunctionWorker(job.getOnNode(), cachedScope,
                     user, job.getDisableRules(), sr.getRuleService(), sr.getTransactionService(),
                     logger, this);
         } else {
-            worker = new ProcessBatchWorker(job.getOnBatch(), cachedScope,
+            worker = new ApplyBatchFunctionWorker(job.getOnBatch(), cachedScope,
                     user, job.getDisableRules(), sr.getRuleService(), sr.getTransactionService(),
                     logger, this);
         }
@@ -142,9 +138,8 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension {
         ActorRef master = actorSystem.getActorSystem().actorOf(new Props(factory), job.getId());
         runningMasterActors.put(job.getId(), master);
 
-        logger.info(String.format("Starting batch processor '%s' to process %s%s",
-                job.getName(), workFactory.describe(data),
-                job.getOnNode() == null ? " with batch function" : ""));
+        logger.info(String.format("Starting batch processor '%s'%s",
+                job.getName(), job.getOnNode() == null ? " with batch function" : ""));
 
         job.setStatus(BatchJobParameters.Status.RUNNING);
         master.tell(new JobMasterActor.Execute());

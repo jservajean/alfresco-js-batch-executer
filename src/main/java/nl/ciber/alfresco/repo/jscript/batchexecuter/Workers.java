@@ -1,16 +1,17 @@
 package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
-import org.alfresco.repo.batch.BatchProcessor;
 import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
-import org.alfresco.repo.jscript.ScriptNode;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.service.cmr.rule.RuleService;
 import org.alfresco.service.transaction.TransactionService;
 import org.apache.commons.logging.Log;
-import org.mozilla.javascript.*;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.Scriptable;
 
 import javax.transaction.UserTransaction;
-import java.util.List;
+import java.util.Collection;
 
 /**
  * Container class for all worker implementations used by
@@ -21,19 +22,20 @@ import java.util.List;
 public class Workers {
 
     /**
-     * A batch processor worker which can be canceled. When canceled it will skip any
-     * processing requests.
+     * A batch processor worker which processes items in batches.
      */
-    public interface CancellableWorker<T> extends BatchProcessor.BatchProcessWorker<T> {
+    public interface BatchProcessorWorker<T> {
+
         /**
-         * Notifies this worker to skip processing of any entries.
-         * @return true if this worker was not canceled before.
+         * Processes a batch of items.
+         * @param batch the batch.
+         * @throws Exception in case error happens, it is responsibility of the caller to retry.
          */
-        boolean cancel();
+        public void process(Collection<T> batch) throws Exception;
+
     }
 
-    private abstract static class BaseProcessWorker<T> extends BatchProcessor.BatchProcessWorkerAdaptor<T>
-                                                        implements CancellableWorker<T> {
+    private abstract static class BaseBatchProcessorWorker<T> implements BatchProcessorWorker<T> {
 
         protected Scriptable scope;
         private String userName;
@@ -42,15 +44,14 @@ public class Workers {
         private TransactionService transactionService;
         protected Log logger;
         private BaseScopableProcessorExtension scopable;
-        private boolean canceled;
 
         protected Function processFunction;
 
-        private BaseProcessWorker(Function processFunction, Scriptable scope,
-                                  String userName, boolean disableRules,
-                                  RuleService ruleService,
-                                  TransactionService transactionService, Log logger,
-                                  BaseScopableProcessorExtension scopable) {
+        private BaseBatchProcessorWorker(Function processFunction, Scriptable scope,
+                                         String userName, boolean disableRules,
+                                         RuleService ruleService,
+                                         TransactionService transactionService, Log logger,
+                                         BaseScopableProcessorExtension scopable) {
             this.processFunction = processFunction;
             this.scope = scope;
             this.userName = userName;
@@ -62,7 +63,7 @@ public class Workers {
         }
 
         @Override
-        public void beforeProcess() throws Throwable {
+        public final void process(Collection<T> batch) throws Exception {
             if (logger.isTraceEnabled()) {
                 logger.trace("beforeProcess: entering context");
             }
@@ -72,107 +73,64 @@ public class Workers {
             if (disableRules) {
                 ruleService.disableRules();
             }
-        }
 
-        @Override
-        public void afterProcess() throws Throwable {
-            if (logger.isTraceEnabled()) {
-                logger.trace("afterProcess: exiting context");
-            }
-            Context.exit();
-            if (disableRules) {
-                ruleService.enableRules();
-            }
-        }
+            UserTransaction trx = transactionService.getUserTransaction();
+            try {
+                trx.begin();
+                doProcess(batch);
+                trx.commit();
+            } catch (Exception e) {
+                trx.rollback();
+                throw e;
+            } finally {
 
-        @Override
-        public final void process(T entry) throws Throwable {
-            if (!canceled) {
-                UserTransaction trx = transactionService.getUserTransaction();
-                try {
-                    trx.begin();
-                    doProcess(entry);
-                    trx.commit();
-                } catch (Throwable t) {
-                    trx.rollback();
-                    throw t;
+                if (logger.isTraceEnabled()) {
+                    logger.trace("afterProcess: exiting context");
                 }
+                Context.exit();
+                if (disableRules) {
+                    ruleService.enableRules();
+                }
+
             }
         }
 
-        public synchronized boolean cancel() {
-            if (!canceled) {
-                canceled = true;
-                return true;
-            }
-            return false;
-        }
-
-        protected abstract void doProcess(T entry) throws Throwable;
+        protected abstract void doProcess(Collection<T> batch) throws Exception;
     }
 
-    @Deprecated
-    public static class ProcessNodeWorker extends BaseProcessWorker<Object> {
-        public ProcessNodeWorker(Function processFunction, Scriptable scope, String userName,
-                                  boolean disableRules, RuleService ruleService, Log logger,
-                                  BaseScopableProcessorExtension scopable) {
-            super(processFunction, scope, userName, disableRules, ruleService, null, logger, scopable);
-        }
-
-        @Override
-        protected void doProcess(Object entry) throws Throwable {
-            Object result = processFunction.call(Context.getCurrentContext(),
-                    scope, scope, new Object[]{ entry });
-            if (logger.isTraceEnabled()) {
-                logger.trace(String.format("call on %s %s", entry, result == null ? "skipped" : "done"));
-            }
-        }
-
-        @Override
-        public String getIdentifier(Object entry) {
-            if (entry instanceof NativeJavaObject) {
-                Object o = ((NativeJavaObject) entry).unwrap();
-                if (o instanceof ScriptNode) {
-                    return String.format("%s (%s)", ((ScriptNode) o).getName(), ((ScriptNode) o).getNodeRef());
-                }
-            }
-            return super.getIdentifier(entry);
-        }
-    }
-
-    public static class ProcessBatchWorker extends BaseProcessWorker<List<Object>> {
-        public ProcessBatchWorker(Function processBatchFunction, Scriptable scope, String userName,
-                                   boolean disableRules, RuleService ruleService,
-                                   TransactionService transactionService, Log logger,
-                                   BaseScopableProcessorExtension scopable) {
+    public static class ApplyBatchFunctionWorker extends BaseBatchProcessorWorker<Object> {
+        public ApplyBatchFunctionWorker(Function processBatchFunction, Scriptable scope, String userName,
+                                        boolean disableRules, RuleService ruleService,
+                                        TransactionService transactionService, Log logger,
+                                        BaseScopableProcessorExtension scopable) {
             super(processBatchFunction, scope, userName, disableRules, ruleService, transactionService,
                     logger, scopable);
         }
 
         @Override
-        protected void doProcess(List<Object> entry) throws Throwable {
-            Scriptable itemsArray = Context.getCurrentContext().newArray(scope, entry.toArray());
+        protected void doProcess(Collection<Object> batch) throws Exception {
+            Scriptable itemsArray = Context.getCurrentContext().newArray(scope, batch.toArray());
             Object resultArray = processFunction.call(Context.getCurrentContext(),
                     scope, scope, new Object[]{ itemsArray });
             if (logger.isTraceEnabled() && resultArray instanceof NativeArray) {
                 logger.trace(String.format("call on batch gave %d results out of %d",
-                        ((NativeArray) resultArray).getIds().length, entry.size()));
+                        ((NativeArray) resultArray).getIds().length, batch.size()));
             }
         }
     }
 
-    public static class ProcessBatchWithOnNodeFunctionWorker extends BaseProcessWorker<List<Object>> {
-        public ProcessBatchWithOnNodeFunctionWorker(Function processNodeFunction, Scriptable scope, String userName,
-                                   boolean disableRules, RuleService ruleService,
-                                   TransactionService transactionService, Log logger,
-                                   BaseScopableProcessorExtension scopable) {
+    public static class ApplyNodeFunctionWorker extends BaseBatchProcessorWorker<Object> {
+        public ApplyNodeFunctionWorker(Function processNodeFunction, Scriptable scope, String userName,
+                                       boolean disableRules, RuleService ruleService,
+                                       TransactionService transactionService, Log logger,
+                                       BaseScopableProcessorExtension scopable) {
             super(processNodeFunction, scope, userName, disableRules, ruleService, transactionService,
                     logger, scopable);
         }
 
         @Override
-        protected void doProcess(List<Object> entries) throws Throwable {
-            for (Object entry : entries) {
+        protected void doProcess(Collection<Object> batch) throws Exception {
+            for (Object entry : batch) {
                 Object result = processFunction.call(Context.getCurrentContext(),
                         scope, scope, new Object[]{ entry });
                 logger.trace(String.format("call on %s %s", entry, result == null ? "skipped" : "done"));

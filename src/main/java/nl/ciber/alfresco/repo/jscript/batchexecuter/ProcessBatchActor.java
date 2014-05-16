@@ -6,6 +6,8 @@ import org.apache.commons.logging.LogFactory;
 
 import java.util.Collection;
 
+import static nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.BatchProcessorWorker;
+
 /**
  * Actor which processes one batch of work items, managing one transaction.
  *
@@ -15,9 +17,9 @@ public class ProcessBatchActor<T> extends UntypedActor {
 
     private static final Log logger = LogFactory.getLog(ProcessBatchActor.class);
 
-    private final Workers.CancellableWorker<T> worker;
+    private final BatchProcessorWorker<T> worker;
 
-    public ProcessBatchActor(Workers.CancellableWorker<T> worker) {
+    public ProcessBatchActor(BatchProcessorWorker<T> worker) {
         this.worker = worker;
     }
 
@@ -25,27 +27,16 @@ public class ProcessBatchActor<T> extends UntypedActor {
     public void onReceive(Object o) throws Exception {
         if (o instanceof Process) {
             @SuppressWarnings("unchecked")
-            Collection<T> singletonList = ((Process<T>) o).getData();
-            if (singletonList != null && !singletonList.isEmpty()) {
-                if (singletonList.size() > 1) {
-                    logger.warn(String.format("More than one (%d) data object found, " +
-                            "processing only the first one: %s", singletonList.size(), singletonList));
-                }
-                T data = singletonList.iterator().next();
-                try {
-                    logger.debug("processing data: " + data);
+            Collection<T> data = ((Process<T>) o).getData();
+            try {
+                logger.debug("processing batch: " + data);
 
-                    worker.beforeProcess();
-                    worker.process(data);
-                    worker.afterProcess();
+                worker.process(data);
 
-                    getSender().tell(new Finished());
+                getSender().tell(new Finished());
 
-                } catch (Throwable throwable) {
-                    throw new Exception(throwable);
-                }
-            } else {
-                logger.warn("Empty or null work item received: " + singletonList);
+            } catch (Throwable throwable) {
+                throw new Exception(throwable);
             }
         }
     }

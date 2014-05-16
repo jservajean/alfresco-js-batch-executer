@@ -45,12 +45,18 @@ public class BaseScriptingTest {
         if (testHome == null) {
             logger.info("Creating folder /Company Home/Tests/");
             testHome = sr.getFileFolderService().create(companyHome, "Tests", ContentModel.TYPE_FOLDER).getNodeRef();
+        } else {
+            clearTestFolderStatic();
         }
         logger.info("Application Context loaded");
     }
 
     @After
     public void clearTestFolder() {
+        clearTestFolderStatic();
+    }
+
+    private static void clearTestFolderStatic() {
         if (ns.exists(testHome)) {
             List<FileInfo> children = sr.getFileFolderService().list(testHome);
             for (FileInfo child : children) {
@@ -80,15 +86,5 @@ public class BaseScriptingTest {
                 userHome, null, null, null);
 
         return sr.getScriptService().executeScriptString(script, model);
-    }
-
-    protected void executeWithModelNonBlocking(final String script) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                AuthenticationUtil.setFullyAuthenticatedUser("admin");
-                executeWithModel(script);
-            }
-        }).start();
     }
 }

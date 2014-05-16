@@ -60,7 +60,7 @@ public class ScriptBEExecutionTest extends BaseScriptingTest {
 
     @Test
     public void processesListByBatches() {
-        testProcessesList("null", FUNCTION_RENAME_BATCH);
+        testProcessesList(FUNCTION_NULL, FUNCTION_RENAME_BATCH);
     }
 
     private void testProcessesList(String onNodeJS, String onBatchJS) {
@@ -91,7 +91,7 @@ public class ScriptBEExecutionTest extends BaseScriptingTest {
 
         // Verify that names changed after a while
         try {
-            Thread.sleep(500);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             fail(e);
         }
@@ -139,7 +139,7 @@ public class ScriptBEExecutionTest extends BaseScriptingTest {
         assertArrayEquals(new String[]{n1, n2, n3}, ((List) result).toArray());
 
         try {
-            Thread.sleep(500);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             fail(e);
         }

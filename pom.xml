@@ -22,6 +22,7 @@
     <properties>
         <alfresco.version>4.2.e</alfresco.version>
         <github.global.server>github</github.global.server>
+        <module.log.level>DEBUG</module.log.level>
     </properties>
 
     <dependencies>
@@ -29,6 +30,12 @@
             <groupId>org.alfresco</groupId>
             <artifactId>alfresco-repository</artifactId>
             <version>${alfresco.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-actor</artifactId>
+            <version>2.0</version>
         </dependency>
 
         <!-- Below dependencies are for web-script testing -->
@@ -118,6 +125,11 @@
                 <enabled>true</enabled>
                 <updatePolicy>daily</updatePolicy>
             </snapshots>
+        </repository>
+        <repository>
+            <id>typesafe</id>
+            <name>Typesafe Repository</name>
+            <url>http://repo.typesafe.com/typesafe/releases/</url>
         </repository>
     </repositories>
 

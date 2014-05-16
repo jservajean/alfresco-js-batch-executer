@@ -3,6 +3,7 @@ package nl.ciber.alfresco.repo.jscript.batchexecuter;
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.batch.BatchProcessWorkProvider;
 import org.alfresco.repo.jscript.ScriptNode;
+import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.service.ServiceRegistry;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
@@ -171,6 +172,7 @@ public class WorkProviders {
         private DictionaryService ds;
         private Log logger;
         private Scriptable scope;
+        private String runAsUser;
 
         public FolderBrowsingWorkProviderFactory(ServiceRegistry sr, Scriptable scope, Log logger) {
             this.sr = sr;
@@ -178,6 +180,7 @@ public class WorkProviders {
             this.ds = sr.getDictionaryService();
             this.scope = scope;
             this.logger = logger;
+            this.runAsUser = AuthenticationUtil.getRunAsUser();
         }
 
         @Override
@@ -238,6 +241,7 @@ public class WorkProviders {
                     return null;
                 }
                 NodeRef head = stack.pop();
+                AuthenticationUtil.setRunAsUser(runAsUser);
                 if (ds.isSubClass(ns.getType(head), ContentModel.TYPE_FOLDER)) {
                     if (logger.isTraceEnabled()) {
                         logger.trace("fetching children of " + head);

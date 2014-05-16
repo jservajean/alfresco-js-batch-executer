@@ -5,9 +5,11 @@ import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
 import org.alfresco.repo.jscript.ScriptNode;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.service.cmr.rule.RuleService;
+import org.alfresco.service.transaction.TransactionService;
 import org.apache.commons.logging.Log;
 import org.mozilla.javascript.*;
 
+import javax.transaction.UserTransaction;
 import java.util.List;
 
 /**
@@ -37,6 +39,7 @@ public class Workers {
         private String userName;
         private boolean disableRules;
         private RuleService ruleService;
+        private TransactionService transactionService;
         protected Log logger;
         private BaseScopableProcessorExtension scopable;
         private boolean canceled;
@@ -45,13 +48,15 @@ public class Workers {
 
         private BaseProcessWorker(Function processFunction, Scriptable scope,
                                   String userName, boolean disableRules,
-                                  RuleService ruleService, Log logger,
+                                  RuleService ruleService,
+                                  TransactionService transactionService, Log logger,
                                   BaseScopableProcessorExtension scopable) {
             this.processFunction = processFunction;
             this.scope = scope;
             this.userName = userName;
             this.disableRules = disableRules;
             this.ruleService = ruleService;
+            this.transactionService = transactionService;
             this.logger = logger;
             this.scopable = scopable;
         }
@@ -83,7 +88,15 @@ public class Workers {
         @Override
         public final void process(T entry) throws Throwable {
             if (!canceled) {
-                doProcess(entry);
+                UserTransaction trx = transactionService.getUserTransaction();
+                try {
+                    trx.begin();
+                    doProcess(entry);
+                    trx.commit();
+                } catch (Throwable t) {
+                    trx.rollback();
+                    throw t;
+                }
             }
         }
 
@@ -98,17 +111,18 @@ public class Workers {
         protected abstract void doProcess(T entry) throws Throwable;
     }
 
+    @Deprecated
     public static class ProcessNodeWorker extends BaseProcessWorker<Object> {
         public ProcessNodeWorker(Function processFunction, Scriptable scope, String userName,
                                   boolean disableRules, RuleService ruleService, Log logger,
                                   BaseScopableProcessorExtension scopable) {
-            super(processFunction, scope, userName, disableRules, ruleService, logger, scopable);
+            super(processFunction, scope, userName, disableRules, ruleService, null, logger, scopable);
         }
 
         @Override
         protected void doProcess(Object entry) throws Throwable {
             Object result = processFunction.call(Context.getCurrentContext(),
-                    scope, scope, new Object[]{entry});
+                    scope, scope, new Object[]{ entry });
             if (logger.isTraceEnabled()) {
                 logger.trace(String.format("call on %s %s", entry, result == null ? "skipped" : "done"));
             }
@@ -127,10 +141,12 @@ public class Workers {
     }
 
     public static class ProcessBatchWorker extends BaseProcessWorker<List<Object>> {
-        public ProcessBatchWorker(Function processFunction, Scriptable scope, String userName,
-                                   boolean disableRules, RuleService ruleService, Log logger,
+        public ProcessBatchWorker(Function processBatchFunction, Scriptable scope, String userName,
+                                   boolean disableRules, RuleService ruleService,
+                                   TransactionService transactionService, Log logger,
                                    BaseScopableProcessorExtension scopable) {
-            super(processFunction, scope, userName, disableRules, ruleService, logger, scopable);
+            super(processBatchFunction, scope, userName, disableRules, ruleService, transactionService,
+                    logger, scopable);
         }
 
         @Override
@@ -141,6 +157,25 @@ public class Workers {
             if (logger.isTraceEnabled() && resultArray instanceof NativeArray) {
                 logger.trace(String.format("call on batch gave %d results out of %d",
                         ((NativeArray) resultArray).getIds().length, entry.size()));
+            }
+        }
+    }
+
+    public static class ProcessBatchWithOnNodeFunctionWorker extends BaseProcessWorker<List<Object>> {
+        public ProcessBatchWithOnNodeFunctionWorker(Function processNodeFunction, Scriptable scope, String userName,
+                                   boolean disableRules, RuleService ruleService,
+                                   TransactionService transactionService, Log logger,
+                                   BaseScopableProcessorExtension scopable) {
+            super(processNodeFunction, scope, userName, disableRules, ruleService, transactionService,
+                    logger, scopable);
+        }
+
+        @Override
+        protected void doProcess(List<Object> entries) throws Throwable {
+            for (Object entry : entries) {
+                Object result = processFunction.call(Context.getCurrentContext(),
+                        scope, scope, new Object[]{ entry });
+                logger.trace(String.format("call on %s %s", entry, result == null ? "skipped" : "done"));
             }
         }
     }

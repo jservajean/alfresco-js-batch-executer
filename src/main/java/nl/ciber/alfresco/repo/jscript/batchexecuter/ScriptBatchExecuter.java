@@ -1,28 +1,25 @@
 package nl.ciber.alfresco.repo.jscript.batchexecuter;
 
+import akka.actor.Actor;
+import akka.actor.ActorRef;
+import akka.actor.Props;
+import akka.actor.UntypedActorFactory;
 import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CancellableWorkProvider;
 import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.CollectionWorkProviderFactory;
 import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.FolderBrowsingWorkProviderFactory;
 import nl.ciber.alfresco.repo.jscript.batchexecuter.WorkProviders.NodeOrBatchWorkProviderFactory;
-import nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.CancellableWorker;
-import nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessBatchWorker;
-import nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.ProcessNodeWorker;
-import org.alfresco.repo.batch.BatchProcessor;
 import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
-import org.alfresco.repo.transaction.RetryingTransactionHelper;
 import org.alfresco.service.ServiceRegistry;
-import org.alfresco.util.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.mozilla.javascript.Scriptable;
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static nl.ciber.alfresco.repo.jscript.batchexecuter.Workers.*;
 
 /**
  * JavaScript object which helps execute big data changes in Alfresco.
@@ -34,16 +31,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Bulat Yaminov
  */
 @SuppressWarnings("UnusedDeclaration")
-public class ScriptBatchExecuter extends BaseScopableProcessorExtension implements ApplicationContextAware {
+public class ScriptBatchExecuter extends BaseScopableProcessorExtension {
 
     private static final Log logger = LogFactory.getLog(ScriptBatchExecuter.class);
 
     private ServiceRegistry sr;
-    private ApplicationContext applicationContext;
+
+    private ActorSystemWrapper actorSystem;
 
     private static ConcurrentHashMap<String, BatchJobParameters> runningJobs = new ConcurrentHashMap<>(10);
-    private static ConcurrentHashMap<String, Pair<CancellableWorkProvider, CancellableWorker>>
-            runningWorkProviders = new ConcurrentHashMap<>(10);
+    private static ConcurrentHashMap<String, ActorRef> runningMasterActors = new ConcurrentHashMap<>(10);
 
     /**
      * Starts processing an array of objects, applying a function to each object or batch of objects
@@ -98,93 +95,77 @@ public class ScriptBatchExecuter extends BaseScopableProcessorExtension implemen
         if (jobId == null) {
             return false;
         }
-
-        // We don't have access to BatchProcessor's executer service,
-        // so the only way to cancel is stop giving new work packages
-        BatchJobParameters job = runningJobs.get(jobId);
-        Pair<CancellableWorkProvider, CancellableWorker> pair = runningWorkProviders.get(jobId);
-        if (pair != null) {
-            boolean workProviderCanceled = pair.getFirst().cancel();
-            boolean workerCanceled = pair.getSecond().cancel();
-            boolean canceled = workProviderCanceled || workerCanceled; // either cancellation is a change
-            if (canceled && job != null) {
-                job.setStatus(BatchJobParameters.Status.CANCELED);
-            }
-            return canceled;
+        ActorRef master = runningMasterActors.get(jobId);
+        if (master == null) {
+            return false;
         }
-        return false;
+        master.tell(new JobMasterActor.Cancel());
+        BatchJobParameters job = runningJobs.get(jobId);
+        if (job != null) {
+            job.setStatus(BatchJobParameters.Status.CANCELED);
+        }
+        return true;
     }
 
-    private <T> String doProcess(BatchJobParameters job,
-                                 NodeOrBatchWorkProviderFactory<T> workFactory,
-                                 T data) {
-        try {
-            /* Process items */
-            runningJobs.put(job.getId(), job);
+    private <T> String doProcess(final BatchJobParameters job,
+                                 final NodeOrBatchWorkProviderFactory<T> workFactory,
+                                 final T data) {
+        /* Process items */
+        runningJobs.put(job.getId(), job);
 
-            final Scriptable cachedScope = getScope();
-            final String user = AuthenticationUtil.getFullyAuthenticatedUser();
+        final Scriptable cachedScope = getScope();
+        final String user = AuthenticationUtil.getFullyAuthenticatedUser();
 
-            RetryingTransactionHelper rth = sr.getTransactionService().getRetryingTransactionHelper();
+        final CancellableWorkProvider<List<Object>> workProvider =
+                workFactory.newBatchesWorkProvider(data, job.getBatchSize());
+        final CancellableWorker<List<Object>> worker;
 
-            job.setStatus(BatchJobParameters.Status.RUNNING);
-
-            if (job.getOnNode() != null) {
-
-                // Let the BatchProcessor do the batching
-                CancellableWorkProvider<Object> workProvider =
-                        workFactory.newNodesWorkProvider(data, job.getBatchSize());
-                ProcessNodeWorker worker = new ProcessNodeWorker(job.getOnNode(), cachedScope,
-                        user, job.getDisableRules(), sr.getRuleService(), logger, this);
-
-                runningWorkProviders.put(job.getId(), new Pair<CancellableWorkProvider,
-                        CancellableWorker>(workProvider, worker));
-
-                BatchProcessor<Object> processor = new BatchProcessor<>(job.getName(), rth,
-                        workProvider,
-                        job.getThreads(), job.getBatchSize(), applicationContext, logger, 1000);
-                logger.info(String.format("Starting batch processor '%s' to process %s",
-                        job.getName(), workFactory.describe(data)));
-                processor.process(worker, true);
-
-            } else {
-
-                // Split into batches here so that onBatch function can process them
-                CancellableWorkProvider<List<Object>> workProvider =
-                        workFactory.newBatchesWorkProvider(data, job.getBatchSize());
-                ProcessBatchWorker worker = new ProcessBatchWorker(job.getOnBatch(), cachedScope,
-                        user, job.getDisableRules(), sr.getRuleService(), logger, this);
-
-                runningWorkProviders.put(job.getId(), new Pair<CancellableWorkProvider,
-                        CancellableWorker>(workProvider, worker));
-
-                BatchProcessor<List<Object>> processor = new BatchProcessor<>(job.getName(), rth,
-                        workProvider,
-                        job.getThreads(), 1, applicationContext, logger, 1);
-                logger.info(String.format("Starting batch processor '%s' to process %s with batch function",
-                        job.getName(), workFactory.describe(data)));
-                processor.process(worker, true);
-            }
-
-            if (job.getStatus() != BatchJobParameters.Status.CANCELED) {
-                job.setStatus(BatchJobParameters.Status.FINISHED);
-            }
-
-            return job.getName();
-
-        } finally {
-            runningJobs.remove(job.getId());
-            runningWorkProviders.remove(job.getId());
+        if (job.getOnNode() != null) {
+            worker = new ProcessBatchWithOnNodeFunctionWorker(job.getOnNode(), cachedScope,
+                    user, job.getDisableRules(), sr.getRuleService(), sr.getTransactionService(),
+                    logger, this);
+        } else {
+            worker = new ProcessBatchWorker(job.getOnBatch(), cachedScope,
+                    user, job.getDisableRules(), sr.getRuleService(), sr.getTransactionService(),
+                    logger, this);
         }
+
+        UntypedActorFactory factory = new UntypedActorFactory() {
+            @Override
+            public Actor create() {
+                return new JobMasterActor<>(job.getId(), job.getThreads(), workProvider, worker,
+                        ScriptBatchExecuter.this);
+            }
+        };
+
+
+        ActorRef master = actorSystem.getActorSystem().actorOf(new Props(factory), job.getId());
+        runningMasterActors.put(job.getId(), master);
+
+        logger.info(String.format("Starting batch processor '%s' to process %s%s",
+                job.getName(), workFactory.describe(data),
+                job.getOnNode() == null ? " with batch function" : ""));
+
+        job.setStatus(BatchJobParameters.Status.RUNNING);
+        master.tell(new JobMasterActor.Execute());
+
+        return job.getName();
+    }
+
+    protected void jobFinished(String jobId) {
+        BatchJobParameters job = runningJobs.get(jobId);
+        if (job != null && job.getStatus() != BatchJobParameters.Status.CANCELED) {
+            job.setStatus(BatchJobParameters.Status.FINISHED);
+        }
+        ScriptBatchExecuter.runningJobs.remove(jobId);
+        ScriptBatchExecuter.runningMasterActors.remove(jobId);
     }
 
     public void setServiceRegistry(ServiceRegistry serviceRegistry) {
         this.sr = serviceRegistry;
     }
 
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = applicationContext;
+    public void setActorSystem(ActorSystemWrapper actorSystem) {
+        this.actorSystem = actorSystem;
     }
-
 }

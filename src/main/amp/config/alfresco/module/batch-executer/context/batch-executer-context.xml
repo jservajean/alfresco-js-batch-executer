@@ -7,6 +7,10 @@
           class="nl.ciber.alfresco.repo.jscript.batchexecuter.ScriptBatchExecuter">
 		<property name="extensionName" value="batchExecuter"/>
 		<property name="serviceRegistry" ref="ServiceRegistry"/>
+        <property name="actorSystem" ref="batchExecuterActorSystem"/>
 	</bean>
+
+    <bean id="batchExecuterActorSystem"
+          class="nl.ciber.alfresco.repo.jscript.batchexecuter.ActorSystemWrapper"/>
 
 </beans>

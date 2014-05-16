@@ -27,7 +27,7 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
 
     @Test
     public void jobsListCanBeFetched() throws InterruptedException {
-        executeWithModelNonBlocking(
+        executeWithModel(
                 "batchExecuter.processFolderRecursively({\n" +
                 "    root: companyhome,\n" +
                 "    batchSize: 5,\n" +
@@ -65,10 +65,10 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
     @Test
     public void jobCanBeStopped() throws Exception {
         final int maxCreateCount = 100;
-        executeWithModelNonBlocking(
+        Object result = executeWithModel(
                 "var array = [];\n" +
                 "for (var i = 0; i < " + maxCreateCount + "; i++) { array[i] = i; }\n" +
-                "batchExecuter.processArray({\n" +
+                "var jobId = batchExecuter.processArray({\n" +
                 "    items: array,\n" +
                 "    batchSize: 5,\n" +
                 "    threads: 2,\n" +
@@ -77,15 +77,24 @@ public class ScriptBEJobManagementTest extends BaseScriptingTest {
                 "        logger.info('created: ' + file.displayPath + '/' + file.name);\n" +
                 "    }\n" +
                 "});\n" +
-                "logger.info('Finished creating " + maxCreateCount + " items');\n"
+                "jobId;\n"
         );
+        assertTrue(result instanceof String);
+        final String jobName = (String) result;
 
         // Let the job process some batches
         Thread.sleep(200);
 
         Collection<BatchJobParameters> jobs = batchExecuter.getCurrentJobs();
-        assertEquals(1, jobs.size());
-        BatchJobParameters job = jobs.iterator().next();
+        assertTrue(jobs.size() >= 1);
+        BatchJobParameters job = null;
+        for (BatchJobParameters j : jobs) {
+            if (jobName.equals(j.getName())) {
+                job = j;
+                break;
+            }
+        }
+        assertNotNull(job);
 
         assertEquals(true, batchExecuter.cancelJob(job.getId()));
         assertEquals(BatchJobParameters.Status.CANCELED, job.getStatus());

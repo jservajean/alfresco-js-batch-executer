@@ -7,6 +7,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.ScriptableObject;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +16,7 @@ import java.util.Map;
  *
  * @author Bulat Yaminov
  */
-public abstract class BatchJobParameters {
+public abstract class BatchJobParameters implements Serializable {
 
     private static final String PARAM_ITEMS = "items";
     private static final String PARAM_ROOT = "root";
